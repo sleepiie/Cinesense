@@ -1,0 +1,60 @@
+# .gitignore
+
+### Backend (FastAPI) ###
+# Python virtual environment
+.venv
+venv/
+env/
+__pycache__/
+
+# Compiled Python files
+*.pyc
+*.pyo
+
+# Django, Flask, FastAPI
+.env
+instance/
+settings_local.py
+db.sqlite3
+
+# Test and coverage files
+.coverage
+/htmlcov/
+
+---
+
+### Frontend (Next.js) ###
+# Next.js build output
+.next/
+
+# Node.js modules
+node_modules/
+
+# VS Code directory (optional, but recommended)
+.vscode/
+
+# Environment variables
+.env.local
+.env.development.local
+.env.production.local
+.env.test.local
+
+# npm/yarn files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp
+.pnp.js
+
+# build and dist files
+dist/
+build/
+out/
+
+---
+
+### macOS ###
+.DS_Store
+
+### Windows ###
+Thumbs.db
