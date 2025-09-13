@@ -1,9 +1,12 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+import bcrypt 
 from db import get_connection
 from password_utills import hash_password
 
 app = FastAPI()
+
 
 @app.get("/")
 def read_root():
@@ -26,15 +29,53 @@ def register(user: UserRegister):
             "INSERT INTO users (user_name, password_hash) VALUES (%s, %s)",
             (user.username, hashed_pw)
         )
+        user_id = cur.fetchone()[0]
         conn.commit()
         return{
             "message": "User registered successfully!",
             "user_registered": user.username,  # ชื่อ username ที่ลงทะเบียน
-            "password_hash": hashed_pw
+            "password_hash": hashed_pw,
+            "user id" : user_id
         }
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=400, detail=f"Register failed: {e}")
+    finally:
+        cur.close()
+        conn.close()
+
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+@app.post("/login")
+def login(user: UserLogin):
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT user_id, user_name, password_hash FROM users WHERE user_name = %s",
+            (user.username,)
+        )
+        db_user = cur.fetchone()
+
+        if not db_user:
+            return JSONResponse(status_code=404, content={"error": "ไม่มีผู้ใช้"})
+
+        user_id, user_name, hashed_password = db_user
+
+        if bcrypt.checkpw(user.password.encode("utf-8"), hashed_password.encode("utf-8")):
+            return {
+                "message": "Login successful!",
+                "user_id": user_id,
+                "username": user_name
+            }
+        else:
+            return JSONResponse(status_code=401, content={"error": "รหัสผ่านไม่ถูกต้อง"})
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Login failed: {e}")
     finally:
         cur.close()
         conn.close()
