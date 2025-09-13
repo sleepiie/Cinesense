@@ -26,7 +26,7 @@ def register(user: UserRegister):
 
     try:
         cur.execute(
-            "INSERT INTO users (user_name, password_hash) VALUES (%s, %s)",
+            "INSERT INTO users (user_name, password_hash) VALUES (%s, %s) RETURNING user_id",
             (user.username, hashed_pw)
         )
         user_id = cur.fetchone()[0]
