@@ -2,14 +2,13 @@
 
 import { useState } from "react";
 import Header from "@/components/Header";
-import { loginUser } from "@/services"; // ✅ ใช้ services
+import { loginUser } from "@/services";
 
 export default function LoginPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleHeaderSearch = (query: string) => {
     setSearchQuery(query);
-    // ถ้า backend ยังไม่พร้อมสามารถ mock แบบง่าย
   };
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -51,3 +50,4 @@ export default function LoginPage() {
     </div>
   );
 }
+
