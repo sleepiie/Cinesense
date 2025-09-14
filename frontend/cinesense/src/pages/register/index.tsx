@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Header from "@/components/Header";
-import { registerUser } from "@/services";
+import { registerUser } from "@/services/api";
 
 export default function RegisterPage() {
   const [step, setStep] = useState("intro"); 
@@ -18,7 +18,6 @@ export default function RegisterPage() {
     e.preventDefault();
     const formData = {
       username: e.currentTarget.username.value,
-      email: e.currentTarget.email.value,
       password: e.currentTarget.password.value,
     };
 
@@ -42,10 +41,6 @@ export default function RegisterPage() {
           <div className="form-group">
             <label htmlFor="username">ชื่อผู้ใช้</label>
             <input type="text" id="username" name="username" placeholder="กรอกชื่อผู้ใช้" required />
-          </div>
-          <div className="form-group">
-            <label htmlFor="email">อีเมล</label>
-            <input type="email" id="email" name="email" placeholder="กรอกอีเมล" required />
           </div>
           <div className="form-group">
             <label htmlFor="password">รหัสผ่าน</label>
