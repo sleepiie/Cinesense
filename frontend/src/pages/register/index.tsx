@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Header from "@/components/Header";
-import { registerUser } from "@/services"; // ✅ ใช้ services
+import { registerUser } from "@/services";
 
 export default function RegisterPage() {
   const [step, setStep] = useState("intro"); 
@@ -62,3 +62,4 @@ export default function RegisterPage() {
     </div>
   );
 }
+

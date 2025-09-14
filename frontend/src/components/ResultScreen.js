@@ -9,7 +9,7 @@ export default function ResultScreen({ onClose, query, movie }) {
   const handleStarClick = (value) => {
     setRating(value);
 
-    // ส่ง rating ไป backend
+
     fetch("/api/submit-rating", {
       method: "POST",
       headers: {
@@ -23,7 +23,7 @@ export default function ResultScreen({ onClose, query, movie }) {
       .then((res) => res.json())
       .then((data) => {
         console.log("Rating submitted:", data);
-        setSubmitted(true); // แสดงข้อความขอบคุณ
+        setSubmitted(true);
       })
       .catch((err) => console.error("Error submitting rating:", err));
   };
@@ -65,3 +65,4 @@ export default function ResultScreen({ onClose, query, movie }) {
     </div>
   );
 }
+

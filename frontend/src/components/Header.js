@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export default function Header({ onSearch }) {
   const [search, setSearch] = useState("");
-  const [showUserPopup, setShowUserPopup] = useState(false); // ✅ ต้องประกาศ useState
+  const [showUserPopup, setShowUserPopup] = useState(false);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -50,3 +50,4 @@ export default function Header({ onSearch }) {
     </header>
   );
 }
+
