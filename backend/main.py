@@ -79,3 +79,44 @@ def login(user: UserLogin):
     finally:
         cur.close()
         conn.close()
+
+    # API สำหรับบันทึกโหวต
+class VoteRequest(BaseModel):
+    user_id: int
+    movie_id: int
+    vote: float
+    
+@app.post("/vote")
+def vote_movie(vote_req: VoteRequest):
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        # ถ้า user เคยโหวตหนังเรื่องนี้แล้ว → อัพเดตคะแนน
+        cur.execute(
+            """
+            INSERT INTO Watched (user_id, movie_id, vote)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (user_id, movie_id)
+            DO UPDATE SET vote = EXCLUDED.vote
+            RETURNING watch_id
+            """,
+            (vote_req.user_id, vote_req.movie_id, vote_req.vote)
+        )
+
+        watch_id = cur.fetchone()[0]
+        conn.commit()
+
+        return {
+            "message": "Vote saved successfully!",
+            "watch_id": watch_id,
+            "user_id": vote_req.user_id,
+            "movie_id": vote_req.movie_id,
+            "vote": vote_req.vote
+        }
+
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=f"Vote failed: {e}")
+    finally:
+        cur.close()
+        conn.close()
