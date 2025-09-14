@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Header from "@/components/Header";
-import { loginUser } from "@/services"; 
+import { loginUser } from "@/services/api"; 
 
 export default function LoginPage() {
   const [searchQuery, setSearchQuery] = useState("");

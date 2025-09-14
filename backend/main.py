@@ -1,16 +1,22 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
+import os
+from dotenv import load_dotenv
 from pydantic import BaseModel
 import bcrypt 
 from db import get_connection
 from password_utills import hash_password
 from fastapi.middleware.cors import CORSMiddleware
 
+load_dotenv()
 
 app = FastAPI()
+
+host = os.getenv("URL_RUN_DEV")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # URL ของ Next.js dev server
+    allow_origins=[host],  # URL ของ Next.js dev server
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
