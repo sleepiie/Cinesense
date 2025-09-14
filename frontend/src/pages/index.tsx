@@ -7,7 +7,7 @@ import MovieForm from "@/components/MovieForm";
 import LoadingScreen from "@/components/LoadingScreen";
 import ResultScreen from "@/components/ResultScreen";
 
-import { recommendMovie } from "@/services"; // ✅ ใช้ services
+import { recommendMovie } from "@/services";
 
 export default function HomePage() {
   const [step, setStep] = useState("intro"); 
@@ -16,7 +16,7 @@ export default function HomePage() {
 
   const handleStart = () => setStep("form");
 
-  // ส่ง MovieForm
+
   const handleSubmit = async (formData: any) => {
     setStep("loading");
     try {
@@ -32,12 +32,12 @@ export default function HomePage() {
     }
   };
 
-  // ค้นหาจาก Header
+
   const handleHeaderSearch = async (query: string) => {
     setSearchQuery(query);
     setStep("loading");
 
-    // ถ้ายังไม่มี backend สำหรับ search สามารถ mock แบบง่าย
+
     setTimeout(() => setStep("results"), 1500);
   };
 
