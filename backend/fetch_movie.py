@@ -1,8 +1,13 @@
 import requests
+import asyncio
+import aiohttp
 import csv
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from db import get_connection
+from nlp_ml.nlp_synopsis import analyze_va
+from psycopg2.extras import execute_values
 
 load_dotenv()
 
@@ -13,44 +18,155 @@ headers = {
     "accept": "application/json",
     "Authorization": os.getenv('API_KEY')
 }
-movies = []
 
-for page in range(1, 26): #เอามาจากหน้า 1-25  
+
+def get_movie_from_tmdb(num_pages=500):
+    all_movies = []
     params = {
         "language": "en-US",
-        "sort_by": "vote_average.desc", #เรียงจาก rating น้อยไปมาก
-        "vote_average.gte": 7.0,  #rating 7 ขึ้นไป      
-        "vote_count.gte": 500,  #คนโหวต 500 คนขึ้นไป         
-        "page": page
+        "sort_by": "vote_average.desc",
+        "vote_average.gte": 6, #ต้องมี rating 6 ขึ้นไป
+        "vote_count.gte": 300 #โหวตอย่างน้อย 300 คน
+    }
+    for page in range(1, num_pages + 1):
+        params["page"] = page
+        response = requests.get(url, headers=headers, params=params)
+        data = response.json()
+        if "results" not in data or not data["results"]:
+            break
+        all_movies.extend(data["results"])
+        if page >= data.get("total_pages", num_pages):
+            break
+    return all_movies[:10000]
+
+
+def get_genre_map():
+    url = "https://api.themoviedb.org/3/genre/movie/list"
+    params = {"language": "en-US"}
+    response = requests.get(url, headers=headers, params=params)
+    data = response.json()
+    return {genre['id']: genre['name'] for genre in data['genres']}
+
+genre_map = get_genre_map()
+
+#ใช้ async ในการ fetch directorname , streaming link เพื่อความเร็ว
+async def fetch_json(session, url):
+    async with session.get(url, headers=headers) as response:
+        return await response.json()
+
+async def get_director_name(movie_id, session):
+    url = f"https://api.themoviedb.org/3/movie/{movie_id}/credits"
+    data = await fetch_json(session, url)
+    directors = [member['name'] for member in data.get('crew', []) if member['job'] == 'Director']
+    return directors if directors else ['N/A']
+
+async def get_streaming_link(movie_id, session, region="TH"):
+    url = f"https://api.themoviedb.org/3/movie/{movie_id}/watch/providers"
+    data = await fetch_json(session, url)
+    provider_list = []
+    if 'results' in data and region in data['results']:
+        region_data = data['results'][region]
+        for key in ['flatrate', 'buy']:
+            if key in region_data:
+                provider_list.extend([p['provider_name'] for p in region_data[key]])
+        provider_list = list(set(provider_list))
+    return provider_list if provider_list else ['N/A']
+
+async def process_movie(movie, session):
+    movie_id = movie['id']
+    director_task = get_director_name(movie_id, session)
+    link_task = get_streaming_link(movie_id, session)
+    director, link = await asyncio.gather(director_task, link_task)
+    return {
+        "id": movie_id,
+        "title": movie['title'],
+        "genre_ids": movie.get("genre_ids", []),
+        "rating": movie.get("vote_average"),
+        "synopsis": movie.get("overview"),
+        "poster_path": movie.get("poster_path"),
+        "director": director,
+        "link": link
     }
 
-    r = requests.get(url,headers=headers, params=params)
-    if r.status_code == 200:
-        data = r.json()
-        movies.extend(data.get("results", []))
-    else:
-        print(f"Error {r.status_code}: {r.text}")
-        break
+async def fetch_all_movies_parallel(movies, concurrency=20):
+    semaphore = asyncio.Semaphore(concurrency)
+    results = []
 
-# print(len(movies))
+    async with aiohttp.ClientSession() as session:
+        async def sem_task(movie):
+            async with semaphore:
+                return await process_movie(movie, session)
 
-# รวมหนัง 500 เรื่องเป็น CSV
-OUTPUT_FILE = Path("movies_500.csv")
-with OUTPUT_FILE.open("w", newline="", encoding="utf-8") as f:
-    writer = csv.writer(f)
-    # เขียน header
-    writer.writerow(["id", "title", "overview", "release_date", "vote_average", "vote_count"])
-    # เขียนข้อมูลหนัง
-    for m in movies:
-        writer.writerow([
-            m.get("id", ""),
-            m.get("title", ""),
-            m.get("overview", "").replace("\n", " "),  
-            m.get("release_date", ""),
-            m.get("vote_average", 0),
-            m.get("vote_count", 0)
-        ])
-
-print(f"Saved {len(movies)} movies to {OUTPUT_FILE}") 
+        tasks = [sem_task(m) for m in movies]
+        for i, task in enumerate(asyncio.as_completed(tasks), 1):
+            movie_data = await task
+            results.append(movie_data)
+            if i % 100 == 0:
+                print(f"Processed {i} movies...")
+    return results
 
 
+def main():
+    print("Fetching movie list from TMDB...")
+    tmdb_movies = get_movie_from_tmdb()
+    print(f"Total movies fetched: {len(tmdb_movies)}")
+
+    print("Fetching directors and streaming links in parallel...")
+    movies_with_details = asyncio.run(fetch_all_movies_parallel(tmdb_movies, concurrency=10))
+
+    #ใช้ batch insert
+    data_list = []
+    for movie in movies_with_details:
+        movie_id = movie["id"]
+        movie_name = movie["title"]
+        movie_genres = [genre_map.get(gid, "N/A") for gid in movie["genre_ids"]]
+        movie_rating = movie["rating"]
+        movie_synopsis = movie["synopsis"]
+        movie_poster = f"https://www.themoviedb.org/t/p/w1280{movie['poster_path']}" if movie["poster_path"] else None
+        movie_direct = movie["director"]
+        movie_link = movie["link"]
+        emotion_va = analyze_va(movie_synopsis)
+
+        data_list.append((
+            movie_id, movie_name, movie_genres, movie_rating, movie_synopsis,
+            movie_link, movie_direct, emotion_va, movie_poster
+        ))
+
+
+    pgconn = get_connection()
+    if not pgconn:
+        print("Cannot connect to database")
+        return
+
+    try:
+        cur = pgconn.cursor()
+        insert_query = """
+            INSERT INTO movies (movie_id, movie_name, movie_genre, movie_rating, movie_synopsis,
+                                movie_link, movie_direct, movie_emotion, movie_poster)
+            VALUES %s
+            ON CONFLICT (movie_id) DO UPDATE SET
+                movie_name = EXCLUDED.movie_name,
+                movie_genre = EXCLUDED.movie_genre,
+                movie_rating = EXCLUDED.movie_rating,
+                movie_synopsis = EXCLUDED.movie_synopsis,
+                movie_link = EXCLUDED.movie_link,
+                movie_direct = EXCLUDED.movie_direct,
+                movie_emotion = EXCLUDED.movie_emotion,
+                movie_poster = EXCLUDED.movie_poster;
+        """
+        batch_size = 100
+        for i in range(0, len(data_list), batch_size):
+            batch = data_list[i:i + batch_size]
+            execute_values(cur, insert_query, batch)
+            pgconn.commit()
+            print(f"Inserted {i + len(batch)} / {len(data_list)} movies...")
+
+        print("All movies saved successfully.")
+    except Exception as e:
+        print(f"Error saving movies: {e}")
+        pgconn.rollback()
+    finally:
+        pgconn.close()
+
+if __name__ == "__main__":
+    main()

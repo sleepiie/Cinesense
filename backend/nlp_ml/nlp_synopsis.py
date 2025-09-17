@@ -1,6 +1,12 @@
+import nltk
+from nltk.tokenize import word_tokenize, sent_tokenize
+nltk.download('punkt')
+nltk.download('punkt_tab')
+
+
 vad_lexicon ={}
 try:
-    with open('NRC-VAD-Lexicon-v2.1.txt' , 'r' , encoding='utf-8') as f:
+    with open('nlp_ml/NRC-VAD-Lexicon-v2.1.txt' , 'r' , encoding='utf-8') as f:
         next(f)
         for line in f:
             parts = line.strip().split('\t')
@@ -12,22 +18,17 @@ except FileNotFoundError:
     vad_lexicon = {}
 
 def analyze_va(text):
-    if not text or not vad_lexicon:
-        return [0.0 , 0.0]
-    words = text.lower().split()
-    total_valence = 0.0
-    total_arousal = 0.0
-    count = 0
+    tokens = word_tokenize(text.lower())
+    valences, arousals = [], []
+    for token in tokens:
+        if token in vad_lexicon:
+            v, a = vad_lexicon[token]
+            valences.append(v)
+            arousals.append(a)
 
-    for word in words:
-        if word in vad_lexicon:
-            valence , arousal = vad_lexicon[word]
-            total_valence += valence
-            total_arousal += arousal
-            count += 1
-    if count > 0:
-        avg_valence = total_valence / count
-        avg_arousal = total_arousal / count
-
-        return [avg_valence,avg_arousal]
-    return [0.0 , 0.0]
+    if valences and arousals:
+        avg_valence = round(sum(valences) / len(valences), 3)
+        avg_arousal = round(sum(arousals) / len(arousals), 3)
+        return [avg_valence, avg_arousal]
+    else:
+        return [0.0, 0.0]
