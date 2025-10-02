@@ -7,8 +7,14 @@ import bcrypt
 from db import get_connection
 from password_utills import hash_password
 from fastapi.middleware.cors import CORSMiddleware
+import joblib
+import numpy as np
+import pandas as pd
 
 load_dotenv()
+
+model = joblib.load("./nlp_ml/ml_model/cinesense_model.pkl")
+encoder = joblib.load("./nlp_ml/ml_model/encoder.pkl")
 
 app = FastAPI()
 
@@ -134,3 +140,29 @@ def vote_movie(vote_req: VoteRequest):
     finally:
         cur.close()
         conn.close()
+
+
+
+
+#prediction part
+class PredictionInput(BaseModel):
+    user_valence: float
+    user_arousal: float
+    user_genre: str
+    movie_valence: float
+    movie_arousal: float
+    movie_genre: str
+
+@app.post("/predict")
+def predict(data: PredictionInput):
+    input_df = pd.DataFrame([data.dict()])
+
+    genre_cols = ["user_genre", "movie_genre"]
+    encoded_genres = encoder.transform(input_df[genre_cols])
+    encoded_cols = encoder.get_feature_names_out(genre_cols)
+    encoded_df = pd.DataFrame(encoded_genres, columns=encoded_cols)
+
+    processed_df = pd.concat([input_df.drop(columns=genre_cols), encoded_df], axis=1)
+    prediction = model.predict(processed_df)
+    
+    return {"matching rate" : float(prediction[0])}
