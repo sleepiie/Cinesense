@@ -448,6 +448,7 @@ body {
 }
 
 .form-group > label {
+  width: 100%;
   display: block;
   margin-bottom: 1rem;
   font-weight: 500;
@@ -463,12 +464,16 @@ body {
 }
 
 .rating-group .label-text {
+  text-align: center;
+  width: 2rem;
   font-size: 0.9rem;
   color: var(--gray-text);
+  white-space: nowrap;
   flex-shrink: 0;
 }
 
 .radio-options-container {
+  margin-left: 2rem;
   display: flex;
   justify-content: space-around;
   flex-grow: 1;

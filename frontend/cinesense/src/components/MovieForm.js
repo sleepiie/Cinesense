@@ -31,7 +31,7 @@ export default function MovieForm({ onSubmit, onClose }) {
           <div className="form-group">
             <label>1. ตอนนี้คุณรู้สึกอารมณ์ดีหรือมีความสุขมากแค่ไหน?</label>
             <div className="rating-group">
-              <span className="label-text">รู้สึกหม่นหมอง</span>
+              <span className="label-text">หม่นหมอง</span>
               <div className="radio-options-container">
                 {[1, 2, 3, 4, 5].map((v) => (
                   <div key={v}>
@@ -40,7 +40,7 @@ export default function MovieForm({ onSubmit, onClose }) {
                   </div>
                 ))}
               </div>
-              <span className="label-text">มีความสุขมาก</span>
+              <span className="label-text">มีความสุข</span>
             </div>
           </div>
 
@@ -58,7 +58,7 @@ export default function MovieForm({ onSubmit, onClose }) {
                   </div>
                 ))}
               </div>
-              <span className="label-text">กระปรี้กระเปร่า</span>
+              <span className="label-text">สดชื่นมาก</span>
             </div>
           </div>
 
@@ -66,7 +66,7 @@ export default function MovieForm({ onSubmit, onClose }) {
           <div className="form-group">
             <label>3. ตอนนี้คุณอยากดูหนังที่ให้ความรู้สึกสงบหรือเร้าใจมากกว่ากัน?</label>
             <div className="rating-group">
-              <span className="label-text">อยากดูหนังที่สงบมาก</span>
+              <span className="label-text">สงบมาก </span>
               <div className="radio-options-container">
                 {[1, 2, 3, 4, 5].map((v) => (
                   <div key={v}>
@@ -75,7 +75,7 @@ export default function MovieForm({ onSubmit, onClose }) {
                   </div>
                 ))}
               </div>
-              <span className="label-text">อยากดูหนังที่ตื่นเต้นสุด ๆ</span>
+              <span className="label-text"> ตื่นเต้นมาก </span>
             </div>
           </div>
 
@@ -88,18 +88,8 @@ export default function MovieForm({ onSubmit, onClose }) {
                 <option value="Romance">โรแมนติก (Romance)</option>
                 <option value="Drama">ดราม่า (Drama)</option>
                 <option value="Horror">สยองขวัญ (Horror)</option>
-                <option value="Thriller">ระทึกขวัญ (Thriller)</option>
-                <option value="Mystery">ลึกลับ (Mystery)</option>
-                <option value="Fantasy">แฟนตาซี (Fantasy)</option>
                 <option value="Sci-Fi">วิทยาศาสตร์ (Sci-Fi)</option>
-                <option value="Animation">แอนิเมชัน (Animation)</option>
-                <option value="Adventure">ผจญภัย (Adventure)</option>
                 <option value="Documentary">สารคดี (Documentary)</option>
-                <option value="Family">ครอบครัว (Family)</option>
-                <option value="Music">ดนตรี/มิวสิคัล (Musical)</option>
-                <option value="Crime">อาชญากรรม (Crime)</option>
-                <option value="History">ประวัติศาสตร์ (History)</option>
-                <option value="War">สงคราม (War)</option>
             </select>
           </div>
 

@@ -1,12 +1,15 @@
 "use client";
 
+import { getCurrentUser } from "@/services/api";
 import { useState } from "react";
+import { useRouter } from "next/navigation"; // ← เพิ่ม import
 import Header from "@/components/Header";
-import { loginUser } from "@/services/api"; 
+import { loginUser } from "@/services/api";
 
 export default function LoginPage() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [errorMsg, setErrorMsg] = useState(""); // state สำหรับเก็บข้อความ error
+  const [errorMsg, setErrorMsg] = useState("");
+  const router = useRouter(); // ← เพิ่ม
 
   const handleHeaderSearch = (query: string) => {
     setSearchQuery(query);
@@ -14,7 +17,7 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setErrorMsg(""); // เคลียร์ข้อความเดิมก่อน
+    setErrorMsg("");
 
     const formData = {
       username: e.currentTarget.username.value,
@@ -22,17 +25,35 @@ export default function LoginPage() {
     };
 
     try {
+      console.log("Attempting login..."); // ← เพิ่ม log
       const res = await loginUser(formData);
-      if (res["message"] == "Login successful!") {
-        // login สำเร็จ → redirect หรือทำอะไรต่อ
-        window.location.href = "/"; // ตัวอย่าง redirect
+      
+      console.log("Login response:", res); // ← เพิ่ม log เพื่อดูผลลัพธ์
+
+      // ← แก้การเช็ค error
+      if (res.error) {
+        console.log("Login error:", res.error); // ← เพิ่ม log
+        setErrorMsg(res.error);
+        return;
+      }
+
+      if (res.message === "Login successful!") {
+        alert("done")
+        console.log("Login successful! Checking session..."); // ← เพิ่ม log
+        
+        // ทดสอบเรียก getCurrentUser
+        const userData = await getCurrentUser();
+        console.log("Current user data:", userData); // ← ควรเห็นข้อมูล user
+
+        // ใช้ router แทน window.location.href
+        router.push("/");
+        router.refresh();
       } else {
-        // login fail → แสดงข้อความใต้ password
-        console.log(res)
+        console.log("Login failed with message:", res.message); // ← เพิ่ม log
         setErrorMsg(res.message || "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");
       }
     } catch (err) {
-      console.error(err);
+      console.error("Login error:", err); // ← เพิ่ม log
       setErrorMsg("เกิดข้อผิดพลาดในการเข้าสู่ระบบ");
     }
   };

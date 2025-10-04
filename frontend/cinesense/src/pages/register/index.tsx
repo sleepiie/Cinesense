@@ -3,11 +3,12 @@
 import { useState } from "react";
 import Header from "@/components/Header";
 import { registerUser } from "@/services/api";
+import { FaEye , FaEyeSlash  } from "react-icons/fa";
 
 export default function RegisterPage() {
   const [step, setStep] = useState("intro"); 
   const [searchQuery, setSearchQuery] = useState("");
-
+  const [showPassword, setShowPassword] = useState(false);
   const handleHeaderSearch = (query: string) => {
     setSearchQuery(query);
     setStep("loading");
@@ -50,7 +51,7 @@ export default function RegisterPage() {
             <label htmlFor="confirmPassword">ยืนยันรหัสผ่าน</label>
             <input type="password" id="confirmPassword" name="confirmPassword" placeholder="ยืนยันรหัสผ่าน" required />
           </div>
-          <button type="submit">สมัครสมาชิก</button>
+          <button type="submit">สมัครสมาชิก</button>  
           <p>มีบัญชีอยู่แล้ว? <a href="/login">เข้าสู่ระบบ</a></p>
         </form>
       </div>
