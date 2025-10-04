@@ -89,3 +89,19 @@ export async function predictMovie(data) {
 
   return await res.json();
 }
+
+export async function submitMood(formData) {
+  const res = await fetch(`${BASE_URL}/submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(formData),
+  });
+
+  if (!res.ok) {
+    const error = await res.json();
+    return { error: error.detail || "เกิดข้อผิดพลาดในการส่งข้อมูล" };
+  }
+
+  return await res.json();
+}

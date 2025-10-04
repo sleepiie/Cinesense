@@ -1,18 +1,41 @@
 "use client";
 
-export default function MovieForm({ onSubmit, onClose }) {
-  const handleSubmit = (e) => {
+import { useState } from "react";
+import { submitMood } from "@/services/api";
+
+export default function MovieForm({ onClose }) {
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setError(null);
 
     const formData = {
-      stress: parseInt(e.target.stress.value),
-      ending: parseInt(e.target.ending.value),
-      mood: parseInt(e.target.mood.value),
-      length: parseInt(e.target.length.value),
+      q1: parseInt(e.target.happiness.value),
+      q2: parseInt(e.target.energy.value),
+      q3: parseInt(e.target.excitement.value),
       genre: e.target.genre.value,
     };
 
-    onSubmit(formData);
+    try {
+      const response = await submitMood(formData);
+      console.log(formData);
+
+      if (response.error) {
+        setError(response.error);
+        setResult(null);
+      } else {
+        setResult(response.result);
+      }
+    } catch (err) {
+      setError(err.message || "เกิดข้อผิดพลาด");
+      setResult(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleOverlayClick = (e) => {
@@ -35,7 +58,7 @@ export default function MovieForm({ onSubmit, onClose }) {
               <div className="radio-options-container">
                 {[1, 2, 3, 4, 5].map((v) => (
                   <div key={v}>
-                    <input type="radio" id={`q1-${v}`} name="stress" value={v} required />
+                    <input type="radio" id={`q1-${v}`} name="happiness" value={v} required />
                     <label htmlFor={`q1-${v}`} className="radio-label"></label>
                   </div>
                 ))}
@@ -43,7 +66,6 @@ export default function MovieForm({ onSubmit, onClose }) {
               <span className="label-text">มีความสุข</span>
             </div>
           </div>
-
 
           {/* Q2 */}
           <div className="form-group">
@@ -53,8 +75,8 @@ export default function MovieForm({ onSubmit, onClose }) {
               <div className="radio-options-container">
                 {[1, 2, 3, 4, 5].map((v) => (
                   <div key={v}>
-                    <input type="radio" id={`q3-${v}`} name="mood" value={v} required />
-                    <label htmlFor={`q3-${v}`} className="radio-label"></label>
+                    <input type="radio" id={`q2-${v}`} name="energy" value={v} required />
+                    <label htmlFor={`q2-${v}`} className="radio-label"></label>
                   </div>
                 ))}
               </div>
@@ -66,35 +88,38 @@ export default function MovieForm({ onSubmit, onClose }) {
           <div className="form-group">
             <label>3. ตอนนี้คุณอยากดูหนังที่ให้ความรู้สึกสงบหรือเร้าใจมากกว่ากัน?</label>
             <div className="rating-group">
-              <span className="label-text">สงบมาก </span>
+              <span className="label-text">สงบมาก</span>
               <div className="radio-options-container">
                 {[1, 2, 3, 4, 5].map((v) => (
                   <div key={v}>
-                    <input type="radio" id={`q4-${v}`} name="length" value={v} required />
-                    <label htmlFor={`q4-${v}`} className="radio-label"></label>
+                    <input type="radio" id={`q3-${v}`} name="excitement" value={v} required />
+                    <label htmlFor={`q3-${v}`} className="radio-label"></label>
                   </div>
                 ))}
               </div>
-              <span className="label-text"> ตื่นเต้นมาก </span>
+              <span className="label-text">ตื่นเต้นมาก</span>
             </div>
           </div>
 
           {/* Genre */}
           <div className="form-group">
             <label htmlFor="genre"><strong>ประเภทหนังที่สนใจ</strong></label>
-            <select id="genre" name="genre">
-                <option value="Action">แอ็กชัน (Action)</option>
-                <option value="Comedy">ตลก (Comedy)</option>
-                <option value="Romance">โรแมนติก (Romance)</option>
-                <option value="Drama">ดราม่า (Drama)</option>
-                <option value="Horror">สยองขวัญ (Horror)</option>
-                <option value="Sci-Fi">วิทยาศาสตร์ (Sci-Fi)</option>
-                <option value="Documentary">สารคดี (Documentary)</option>
+            <select id="genre" name="genre" required>
+              <option value="Action">แอ็กชัน (Action)</option>
+              <option value="Comedy">ตลก (Comedy)</option>
+              <option value="Romance">โรแมนติก (Romance)</option>
+              <option value="Drama">ดราม่า (Drama)</option>
+              <option value="Horror">สยองขวัญ (Horror)</option>
+              <option value="Sci-Fi">วิทยาศาสตร์ (Sci-Fi)</option>
+              <option value="Documentary">สารคดี (Documentary)</option>
             </select>
           </div>
 
-          <button type="submit" className="form-submit-btn">ส่งข้อมูล</button>
+          <button type="submit" className="form-submit-btn" disabled={loading}>
+            {loading ? "กำลังส่ง..." : "ส่งข้อมูล"}
+          </button>
         </form>
+
       </div>
     </div>
   );

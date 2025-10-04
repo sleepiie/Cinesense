@@ -225,3 +225,19 @@ def predict(data: PredictionInput, session_id: Optional[str] = Cookie(None)):
     prediction = model.predict(processed_df)
     
     return {"matching rate" : float(prediction[0])}
+
+class SubmitRequest(BaseModel):
+    q1: int
+    q2: int
+    q3: int
+    genre: str
+    
+@app.post("/submit")
+def submit_mood(submit:SubmitRequest):
+    response = JSONResponse(
+        content={
+            "message": "successfully!",
+            "result": [submit.q1, submit.q2, submit.q3, submit.genre]
+        }
+    )
+    return response
