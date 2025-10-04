@@ -29,9 +29,9 @@ export default function MovieForm({ onSubmit, onClose }) {
 
           {/* Q1 */}
           <div className="form-group">
-            <label>1. ตอนนี้คุณรู้สึกเครียดหรือผ่อนคลายแค่ไหน?</label>
+            <label>1. ตอนนี้คุณรู้สึกอารมณ์ดีหรือมีความสุขมากแค่ไหน?</label>
             <div className="rating-group">
-              <span className="label-text">เครียดสุดๆ</span>
+              <span className="label-text">รู้สึกหม่นหมอง</span>
               <div className="radio-options-container">
                 {[1, 2, 3, 4, 5].map((v) => (
                   <div key={v}>
@@ -40,32 +40,16 @@ export default function MovieForm({ onSubmit, onClose }) {
                   </div>
                 ))}
               </div>
-              <span className="label-text">ผ่อนคลายสุดๆ</span>
+              <span className="label-text">มีความสุขมาก</span>
             </div>
           </div>
+
 
           {/* Q2 */}
           <div className="form-group">
-            <label>2. คุณอยากให้หนังจบแบบแฮปปี้หรือน่าเศร้า?</label>
+            <label>2. ตอนนี้คุณรู้สึกมีพลังหรือกระตือรือร้นมากแค่ไหน?</label>
             <div className="rating-group">
-              <span className="label-text">เศร้าสุดๆ</span>
-              <div className="radio-options-container">
-                {[1, 2, 3, 4, 5].map((v) => (
-                  <div key={v}>
-                    <input type="radio" id={`q2-${v}`} name="ending" value={v} required />
-                    <label htmlFor={`q2-${v}`} className="radio-label"></label>
-                  </div>
-                ))}
-              </div>
-              <span className="label-text">แฮปปี้สุดๆ</span>
-            </div>
-          </div>
-
-          {/* Q3 */}
-          <div className="form-group">
-            <label>3. คุณอยากดูหนังที่ทำให้รู้สึกสงบหรือตื่นเต้น?</label>
-            <div className="rating-group">
-              <span className="label-text">สงบ</span>
+              <span className="label-text">หมดแรง</span>
               <div className="radio-options-container">
                 {[1, 2, 3, 4, 5].map((v) => (
                   <div key={v}>
@@ -74,15 +58,15 @@ export default function MovieForm({ onSubmit, onClose }) {
                   </div>
                 ))}
               </div>
-              <span className="label-text">ตื่นเต้น</span>
+              <span className="label-text">กระปรี้กระเปร่า</span>
             </div>
           </div>
 
-          {/* Q4 */}
+          {/* Q3 */}
           <div className="form-group">
-            <label>4. คุณอยากดูหนังสั้นหรือนาน ๆ ?</label>
+            <label>3. ตอนนี้คุณอยากดูหนังที่ให้ความรู้สึกสงบหรือเร้าใจมากกว่ากัน?</label>
             <div className="rating-group">
-              <span className="label-text">สั้น ๆ</span>
+              <span className="label-text">อยากดูหนังที่สงบมาก</span>
               <div className="radio-options-container">
                 {[1, 2, 3, 4, 5].map((v) => (
                   <div key={v}>
@@ -91,7 +75,7 @@ export default function MovieForm({ onSubmit, onClose }) {
                   </div>
                 ))}
               </div>
-              <span className="label-text">ยาว ๆ</span>
+              <span className="label-text">อยากดูหนังที่ตื่นเต้นสุด ๆ</span>
             </div>
           </div>
 
@@ -99,12 +83,23 @@ export default function MovieForm({ onSubmit, onClose }) {
           <div className="form-group">
             <label htmlFor="genre"><strong>ประเภทหนังที่สนใจ</strong></label>
             <select id="genre" name="genre">
-              <option value="Action">แอ็กชัน (Action)</option>
-              <option value="Comedy">ตลก (Comedy)</option>
-              <option value="Romance">โรแมนติก (Romance)</option>
-              <option value="Drama">ดราม่า (Drama)</option>
-              <option value="Horror">สยองขวัญ (Horror)</option>
-              <option value="Sci-Fi">วิทยาศาสตร์ (Sci-Fi)</option>
+                <option value="Action">แอ็กชัน (Action)</option>
+                <option value="Comedy">ตลก (Comedy)</option>
+                <option value="Romance">โรแมนติก (Romance)</option>
+                <option value="Drama">ดราม่า (Drama)</option>
+                <option value="Horror">สยองขวัญ (Horror)</option>
+                <option value="Thriller">ระทึกขวัญ (Thriller)</option>
+                <option value="Mystery">ลึกลับ (Mystery)</option>
+                <option value="Fantasy">แฟนตาซี (Fantasy)</option>
+                <option value="Sci-Fi">วิทยาศาสตร์ (Sci-Fi)</option>
+                <option value="Animation">แอนิเมชัน (Animation)</option>
+                <option value="Adventure">ผจญภัย (Adventure)</option>
+                <option value="Documentary">สารคดี (Documentary)</option>
+                <option value="Family">ครอบครัว (Family)</option>
+                <option value="Music">ดนตรี/มิวสิคัล (Musical)</option>
+                <option value="Crime">อาชญากรรม (Crime)</option>
+                <option value="History">ประวัติศาสตร์ (History)</option>
+                <option value="War">สงคราม (War)</option>
             </select>
           </div>
 
