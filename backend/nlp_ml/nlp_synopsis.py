@@ -12,7 +12,10 @@ try:
             parts = line.strip().split('\t')
             if len(parts) == 4:
                 word , valence , arousal , dominance = parts
-                vad_lexicon[word.lower()]= (float(valence) , float(arousal))
+                v, a = float(valence), float(arousal)
+                v = (v + 1) / 2
+                a = (a + 1) / 2
+                vad_lexicon[word.lower()]= (v,a)
 except FileNotFoundError:
     print("NRC-VAD file not found")
     vad_lexicon = {}
