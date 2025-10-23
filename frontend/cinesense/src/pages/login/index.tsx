@@ -1,15 +1,25 @@
 "use client";
 
 import { getCurrentUser } from "@/services/api";
-import { useState } from "react";
-import { useRouter } from "next/navigation"; // ← เพิ่ม import
+import { useState, useEffect } from "react"; // 1. เพิ่ม useEffect
+import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import { loginUser } from "@/services/api";
 
 export default function LoginPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
-  const router = useRouter(); // ← เพิ่ม
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null); // 2. เพิ่ม user state
+
+  // 3. เพิ่ม useEffect เพื่อดึงข้อมูล user (เผื่อกรณีกดเข้ามาหน้า login ทั้งที่ login อยู่แล้ว)
+  useEffect(() => {
+    const fetchUser = async () => {
+      const userData = await getCurrentUser();
+      setUser(userData);
+    };
+    fetchUser();
+  }, []);
 
   const handleHeaderSearch = (query: string) => {
     setSearchQuery(query);
@@ -25,46 +35,48 @@ export default function LoginPage() {
     };
 
     try {
-      console.log("Attempting login..."); // ← เพิ่ม log
+      console.log("Attempting login...");
       const res = await loginUser(formData);
       
-      console.log("Login response:", res); // ← เพิ่ม log เพื่อดูผลลัพธ์
+      console.log("Login response:", res);
 
-      // ← แก้การเช็ค error
       if (res.error) {
-        console.log("Login error:", res.error); // ← เพิ่ม log
+        console.log("Login error:", res.error);
         setErrorMsg(res.error);
         return;
       }
 
       if (res.message === "Login successful!") {
-        alert("done")
-        console.log("Login successful! Checking session..."); // ← เพิ่ม log
+        alert("done");
+        console.log("Login successful! Checking session...");
         
-        // ทดสอบเรียก getCurrentUser
         const userData = await getCurrentUser();
-        console.log("Current user data:", userData); // ← ควรเห็นข้อมูล user
-
-        // ใช้ router แทน window.location.href
-        router.push("/home");
-        router.refresh();
+        console.log("Current user data:", userData);
+        
+        setUser(userData); // 4. อัปเดต user state หลัง login สำเร็จ
+        
+        router.push("/");
+        // router.refresh();
       } else {
-        console.log("Login failed with message:", res.message); // ← เพิ่ม log
+        console.log("Login failed with message:", res.message);
         setErrorMsg(res.message || "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");
       }
     } catch (err) {
-      console.error("Login error:", err); // ← เพิ่ม log
+      console.error("Login error:", err);
       setErrorMsg("เกิดข้อผิดพลาดในการเข้าสู่ระบบ");
     }
   };
 
   return (
     <div className="login-page">
-      <Header onSearch={handleHeaderSearch} />
+      {/* 5. ส่ง user และ setUser ให้ Header */}
+      <Header onSearch={handleHeaderSearch} user={user} setUser={setUser} />
+      
       <div className="login-page__background"></div>
       <div className="login-page__overlay"></div>
       <div className="login-page__form-container">
         <form className="login-form" onSubmit={handleLogin}>
+          {/* ... (ส่วนที่เหลือของ form เหมือนเดิม) ... */}
           <h2>เข้าสู่ระบบ</h2>
           <div className="form-group">
             <label htmlFor="username">ชื่อผู้ใช้</label>
