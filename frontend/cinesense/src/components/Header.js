@@ -25,51 +25,37 @@ export default function Header({ onSearch, user, setUser }) {
 
   return (
     <header className="main-header">
-      <div className="logo" onClick={() => onSearch?.("")}>
-        CINESENSE
-      </div>
+      <div className="header-content">
+        <div className="logo" onClick={() => router.push("/")}>
+          CINESENSE
+        </div>
 
-      <nav>
-        <ul className="nav-links">
-          <li><a href="/">Home</a></li>
-          {user ? (
-            <li>
-              <a onClick={handleLogout} className="header-btn" style={{ cursor: 'pointer' }}>
-                Logout
-              </a>
-            </li>
-          ) : (
-            <>
-              <li><Link href="/login" className="header-btn">Login</Link></li>
-              <li><Link href="/register">Register</Link></li>
-            </>
-          )}
-        </ul>
-      </nav>
+        <nav className="nav-section">
+          <ul className="nav-links">
+            <li><a href="/">Home</a></li>
+            {!user && (
+              <>
+                <li><Link href="/login" className="header-btn">Login</Link></li>
+                <li><Link href="/register">Register</Link></li>
+              </>
+            )}
+          </ul>
+        </nav>
 
-      <div className="header-right">
+        <div className="header-right">
 
-        <div className="user-icon" onClick={() => setShowUserPopup(!showUserPopup)}>
-          <i className="fas fa-user-circle"></i>
+          {user && (
+            <div className="user-icon" onClick={() => setShowUserPopup(!showUserPopup)}>
+              <i className="fas fa-user-circle"></i>
+              <span className="username">{user.username}</span>
 
-          {showUserPopup && (
-            <div className="user-popup">
-              {user ? (
-                <>
+              {showUserPopup && (
+                <div className="user-popup">
                   <p>Welcome, {user.username}!</p>
-                  {/* ▼▼▼ 2. แก้ไขตรงนี้ด้วย (ใน Popup) ▼▼▼ */}
-                  {/* เปลี่ยนจาก <button> เป็น <a> */}
                   <a onClick={handleLogout} style={{ cursor: 'pointer', padding: '5px 0' }}>
                     Logout
                   </a>
-                  {/* ▲▲▲ สิ้นสุดการแก้ไข ▲▲▲ */}
-                </>
-              ) : (
-                <>
-                  <p>Welcome, Guest!</p>
-                  <Link href="/login">Login</Link>
-                  <Link href="/register">Register</Link>
-                </>
+                </div>
               )}
             </div>
           )}

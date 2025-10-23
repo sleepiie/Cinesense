@@ -20,9 +20,21 @@ export default function HomePage() {
   // 4. เพิ่ม useEffect เพื่อดึงข้อมูล user เมื่อ component โหลด
   useEffect(() => {
     const fetchUser = async () => {
-      const userData = await getCurrentUser();
-      setUser(userData); // userData จะเป็น null หรือ { user_id, username, ... }
-      console.log("HomePage: ได้ข้อมูล user:", userData);
+      try {
+        const userData = await getCurrentUser();
+        setUser(userData); // userData จะเป็น null หรือ { user_id, username, ... }
+        console.log("HomePage: ได้ข้อมูล user:", userData);
+        
+        // ถ้าไม่มี user ให้ redirect ไปหน้า landing
+        if (!userData) {
+          router.push("/landing");
+        }
+      } catch (error) {
+        console.log("HomePage: ไม่มี user session หรือ session หมดอายุ");
+        setUser(null);
+        // ถ้าไม่มี session ให้ redirect ไปหน้า landing
+        router.push("/landing");
+      }
     };
     fetchUser();
   }, []); // [] หมายถึงให้รันแค่ครั้งเดียวตอนโหลด
@@ -52,6 +64,18 @@ export default function HomePage() {
     setTimeout(() => setStep("results"), 1500);
   };
 
+  // ถ้าไม่มี user ให้แสดง loading หรือ redirect
+  if (!user) {
+    return (
+      <div className="main-content">
+        <div className="background-container"></div>
+        <div className="loading-screen">
+          <p>กำลังตรวจสอบสถานะการเข้าสู่ระบบ...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="main-content">
       <div className="background-container"></div>
@@ -59,31 +83,8 @@ export default function HomePage() {
       {/* 5. ส่ง user และ setUser ไปให้ Header */}
       <Header onSearch={handleHeaderSearch} user={user} setUser={setUser} />
 
-      {/* 6. แสดง landing page หรือ IntroBox ตามสถานะ user */}
-      {step === "intro" && !user && (
-        <div className="intro-box">
-          <h1>🎬 Welcome to CINESENSE</h1>
-          <p>ค้นพบหนังที่คุณชื่นชอบและรับคำแนะนำหนังใหม่ ๆ ที่ตรงกับรสนิยมของคุณ</p>
-
-          {/* ฟีเจอร์แนะนำเว็บสั้น ๆ */}
-          <ul style={{ listStyle: "disc", margin: "1rem 0 2rem 1.5rem", color: "#ccc" }}>
-            <li>ค้นหาหนังใหม่และหนังคลาสสิกได้ทันที</li>
-            <li>ระบบแนะนำหนังตามความชอบของคุณ</li>
-            <li>สร้างรายการโปรดและติดตามหนังที่ชอบ</li>
-          </ul>
-
-          <div style={{ display: "flex", justifyContent: "center", gap: "1rem" }}>
-            <button className="start-btn" onClick={() => router.push("/login")}>
-              Login
-            </button>
-            <button className="start-btn" onClick={() => router.push("/register")}>
-              Register
-            </button>
-          </div>
-        </div>
-      )}
-      
-      {step === "intro" && user && <IntroBox onStart={handleStart} user={user} />}
+      {/* 6. แสดง IntroBox สำหรับผู้ใช้ที่ login แล้ว */}
+      {step === "intro" && <IntroBox onStart={handleStart} user={user} />}
       
       {step === "form" && <MovieForm onClose={() => setStep("intro")} />}
       {step === "loading" && <LoadingScreen />}
