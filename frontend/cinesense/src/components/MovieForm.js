@@ -22,13 +22,15 @@ export default function MovieForm({ onClose }) {
 
     try {
       const response = await submitMood(formData);
-      console.log(formData);
+      console.log("📤 Sending form data:", formData);
+      console.log("📥 Backend response:", response);
+      console.log("📥 Top movies JSON:", JSON.stringify(response?.top_movies, null, 2));
 
       if (response.error) {
         setError(response.error);
         setResult(null);
       } else {
-        setResult(response.result);
+        setResult(response);
       }
     } catch (err) {
       setError(err.message || "เกิดข้อผิดพลาด");

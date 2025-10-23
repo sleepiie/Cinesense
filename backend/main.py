@@ -11,23 +11,55 @@ import joblib
 import numpy as np
 import pandas as pd
 from typing import Optional
-from session import create_session, get_session, delete_session  # ← เพิ่ม import
+from session import create_session, get_session, delete_session
+import redis
+import json
 
 load_dotenv()
 
-model = joblib.load("./nlp_ml/ml_model/cinesense_model.pkl")
-encoder = joblib.load("./nlp_ml/ml_model/encoder.pkl")
+EXPECTED_COLS = [
+    'user_valence', 'user_arousal', 'movie_valence', 'movie_arousal',
+    'user_genre_Action', 'user_genre_Comedy', 'user_genre_Documentary', 
+    'user_genre_Drama', 'user_genre_Horror', 'user_genre_Romance', 'user_genre_Sci-Fi', 
+    'movie_genre_Action', 'movie_genre_Comedy', 'movie_genre_Documentary', 
+    'movie_genre_Drama', 'movie_genre_Horror', 'movie_genre_Romance', 'movie_genre_Sci-Fi'
+]
+
+
+try:
+    model = joblib.load("./nlp_ml/ml_model/cinesense_model.pkl")
+    encoder = joblib.load("./nlp_ml/ml_model/encoder.pkl")
+    
+    ENCODER_KNOWN_GENRES = set(encoder.categories_[1]) 
+    DEFAULT_GENRE = 'drama' 
+    if DEFAULT_GENRE not in ENCODER_KNOWN_GENRES:
+        DEFAULT_GENRE = list(ENCODER_KNOWN_GENRES)[0] if ENCODER_KNOWN_GENRES else 'unknown'
+
+except Exception as e:
+    print(f"ERROR LOADING ML FILES: {e}")
+    # หากโหลด Model ไม่สำเร็จ ให้ยกเลิกการทำงานหรือตั้งค่าเป็น None
+    model = None
+    encoder = None
+
 
 app = FastAPI()
 
-host = os.getenv("URL_RUN_DEV")
+#host = os.getenv("URL_RUN_DEV")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[host],
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,  # ← สำคัญ! ต้องมี
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+r = redis.Redis(
+    host=os.getenv("REDIS_HOST", "localhost"),
+    port=int(os.getenv("REDIS_PORT", 6379)),
+    db=int(os.getenv("REDIS_DB", 0)),
+    password=os.getenv("REDIS_PASSWORD", None),
+    decode_responses=True
 )
 
 @app.get("/")
@@ -129,6 +161,7 @@ def logout(session_id: Optional[str] = Cookie(None)):
 
 
 # ← เพิ่ม endpoint สำหรับตรวจสอบ session
+
 @app.get("/session")
 def get_current_user(session_id: Optional[str] = Cookie(None)):
     if not session_id:
@@ -194,7 +227,7 @@ def vote_movie(vote_req: VoteRequest, session_id: Optional[str] = Cookie(None)):
         cur.close()
         conn.close()
 
-
+'''
 # Prediction part
 class PredictionInput(BaseModel):
     user_valence: float
@@ -225,19 +258,170 @@ def predict(data: PredictionInput, session_id: Optional[str] = Cookie(None)):
     prediction = model.predict(processed_df)
     
     return {"matching rate" : float(prediction[0])}
+'''
 
 class SubmitRequest(BaseModel):
     q1: int
     q2: int
     q3: int
     genre: str
-    
+
+def safe_parse_genre(x):
+    """แปลง Genre จาก Redis ให้เป็น lowercase และใช้ค่า default หากไม่รู้จัก"""
+    try:
+        genres_list = json.loads(x)
+        if genres_list:
+            genre = genres_list[0].lower()
+            if genre in ENCODER_KNOWN_GENRES:
+                return genre
+            else:
+                return DEFAULT_GENRE
+        return DEFAULT_GENRE
+    except:
+        return DEFAULT_GENRE
+
 @app.post("/submit")
-def submit_mood(submit:SubmitRequest):
-    response = JSONResponse(
-        content={
-            "message": "successfully!",
-            "result": [submit.q1, submit.q2, submit.q3, submit.genre]
+def submit_mood(submit: SubmitRequest, session_id: Optional[str] = Cookie(None)):
+
+    if model is None or encoder is None:
+        raise HTTPException(status_code=503, detail="ML Model or Encoder not loaded.")
+
+    try:
+        # 1. Authentication & User Input Pre-processing
+        if not session_id:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        session = get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=401, detail="Invalid or expired session")
+        
+        user_id = session["user_id"]
+        user_valence = (submit.q1) / 5
+        user_arousal = ((submit.q2+submit.q3) /2 )/ 5
+        
+        # Map form genre to encoder format (case-sensitive)
+        genre_mapping = {
+            "action": "Action",
+            "comedy": "Comedy", 
+            "drama": "Drama",
+            "documentary": "Documentary",
+            "horror": "Horror",
+            "romance": "Romance",
+            "sci-fi": "Sci-Fi"
         }
-    )
-    return response
+        
+        user_genre = genre_mapping.get(submit.genre.lower(), submit.genre)
+        print(f"DEBUG: Original genre from form = '{submit.genre}'")
+        print(f"DEBUG: Mapped genre = '{user_genre}'")
+        print(f"DEBUG: ENCODER_KNOWN_GENRES = {ENCODER_KNOWN_GENRES}")
+        print(f"DEBUG: DEFAULT_GENRE = '{DEFAULT_GENRE}'")
+        
+        if user_genre not in ENCODER_KNOWN_GENRES:
+             print(f"DEBUG: Genre '{user_genre}' not in known genres, using DEFAULT_GENRE '{DEFAULT_GENRE}'")
+             user_genre = DEFAULT_GENRE
+        else:
+             print(f"DEBUG: Genre '{user_genre}' found in known genres")
+
+        # 2. ดึงข้อมูลจาก Redis
+        all_keys = list(r.scan_iter("movie:*"))
+        pipe = r.pipeline()
+        for key in all_keys:
+            pipe.hgetall(key)
+        results = pipe.execute()
+        movies_list = [movie for movie in results if movie]
+        if not movies_list:
+            raise HTTPException(status_code=404, detail="No valid movie data in Redis")
+
+        df_movies = pd.DataFrame(movies_list)
+        df_movies["movie_id"] = [key.split(":")[1] for key in all_keys]
+
+        # 3. Data Pre-processing
+        df_movies = df_movies.rename(columns={
+            "name": "movie_name", "emotion": "movie_emotion", 
+            "gerne": "movie_genre", "poster": "movie_poster"
+        })
+
+        emotion_data = df_movies["movie_emotion"].apply(json.loads)
+        df_movies[["movie_valence", "movie_arousal"]] = pd.DataFrame(emotion_data.tolist(), index=df_movies.index)
+        # Keep a list of genres for filtering, then derive a single genre for the encoder
+        try:
+            df_movies["movie_genres_list"] = df_movies["movie_genre"].apply(lambda s: [g.lower() for g in json.loads(s)] if s else [])
+        except Exception:
+            df_movies["movie_genres_list"] = [[] for _ in range(len(df_movies))]
+        df_movies["movie_genre"] = df_movies["movie_genre"].apply(safe_parse_genre)
+        
+        df_movies["user_valence"] = user_valence
+        df_movies["user_arousal"] = user_arousal
+        df_movies["user_genre"] = user_genre
+
+        # 3.1 Filter by selected genre first with fallback
+        print(f"DEBUG: user_genre = '{user_genre}'")
+        print(f"DEBUG: movie_genre values = {df_movies['movie_genre'].unique()}")
+        print(f"DEBUG: Movies before filtering = {len(df_movies)}")
+        
+        # Filter by any matching genre in the list (case-insensitive)
+        df_movies_filtered = df_movies[df_movies["movie_genres_list"].apply(lambda gs: user_genre.lower() in gs)].copy()
+        print(f"DEBUG: Movies after filtering = {len(df_movies_filtered)}")
+        
+        if df_movies_filtered.empty:
+            # Fallback to all movies if no movies in selected genre
+            print("DEBUG: No movies in selected genre, using fallback to all movies")
+            df_movies_filtered = df_movies.copy()
+        df_movies = df_movies_filtered
+
+        # 4. Feature Selection, OHE, and Final Preparation (CRITICAL FIX)
+        
+        numerical_cols = ["user_valence", "user_arousal", "movie_valence", "movie_arousal"]
+        genre_cols = ["user_genre", "movie_genre"]
+        
+        # เลือกเฉพาะ Features ที่จะใช้ในการสร้าง processed_df
+        df_features = df_movies[numerical_cols + genre_cols].copy() 
+
+        # One-hot Encoding (OHE)
+        # ใช้ handle_unknown='ignore' ถ้าคุณเทรน encoder ด้วย option นี้
+        # ถ้าไม่ได้เทรนด้วย handle_unknown='ignore' ให้ใช้โค้ดเดิม (แต่เราได้จัดการ unknown categories แล้ว)
+        encoded_genres = encoder.transform(df_features[genre_cols])
+        encoded_cols = encoder.get_feature_names_out(genre_cols)
+        encoded_df = pd.DataFrame(encoded_genres, columns=encoded_cols, index=df_features.index)
+
+        # รวม Features ตัวเลขเข้ากับ OHE Features
+        processed_df = pd.concat([df_features.drop(columns=genre_cols), encoded_df], axis=1)
+
+        # *** FINAL CRITICAL STEP: บังคับเรียงคอลัมน์ตาม EXPECTED_COLS ***
+        # นี่คือการแก้ไขปัญหา "Feature names should match"
+        try:
+            # เราใช้ .reindex(columns=...) เพื่อจัดเรียงคอลัมน์
+            processed_df = processed_df.reindex(columns=EXPECTED_COLS, fill_value=0)
+        except Exception as e:
+            # หากยังเกิด Error แสดงว่า EXPECTED_COLS อาจจะไม่ตรงกับ Features ที่ถูกสร้างจาก OHE
+            raise HTTPException(status_code=500, detail=f"Failed to reindex features: {e}. Check EXPECTED_COLS.")
+
+        # 5. Prediction
+        preds = model.predict(processed_df)
+        df_movies["matching_rate"] = preds
+
+        # 6. สรุปผลลัพธ์
+        top_10 = df_movies.sort_values(by="matching_rate", ascending=False).head(10)
+
+        results = []
+        for _, row in top_10.iterrows():
+            results.append({
+                "movie_id": str(row["movie_id"]),
+                "title": str(row.get("movie_name", "Unknown")),
+                "genres": list(row.get("movie_genres_list", [])),
+                "poster": str(row.get("movie_poster", "")),
+                "matching_rate": float(row["matching_rate"])
+            })
+        print(user_id,results)
+        return {
+            "message": "Prediction successful!",
+            "user_id": user_id,
+            "top_movies": results
+        }
+
+    except Exception as e:
+        print(f"--- ERROR IN /submit ENDPOINT ---: {e}") 
+        if 'processed_df' in locals():
+             print(f"DEBUG: Current columns in processed_df: {processed_df.columns.tolist()}")
+
+        # ส่ง HTTP 500 กลับไปพร้อมข้อความ Error
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
