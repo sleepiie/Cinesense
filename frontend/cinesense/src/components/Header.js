@@ -18,14 +18,14 @@ export default function Header({ onSearch }) {
 
       <nav>
         <ul className="nav-links">
-          <li><a href="/">Home</a></li>
-          <li><Link href="/login" className="header-btn">Login</Link></li>
-          <li><Link href="/register">Register</Link></li>
+          <li><a href="/home">Home</a></li>
+          {/* <li><Link href="/login" className="header-btn">Login</Link></li>
+          <li><Link href="/register">Register</Link></li> */}
         </ul>
       </nav>
 
       <div className="header-right">
-        <form className="search-box" onSubmit={handleSubmit}>
+        {/* <form className="search-box" onSubmit={handleSubmit}>
           <input
             type="text"
             placeholder="Search..."
@@ -33,7 +33,7 @@ export default function Header({ onSearch }) {
             onChange={(e) => setSearch(e.target.value)}
           />
           <button type="submit">Enter</button>
-        </form>
+        </form> */}
 
         <div className="user-icon" onClick={() => setShowUserPopup(!showUserPopup)}>
           <i className="fas fa-user-circle"></i>

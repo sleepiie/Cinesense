@@ -1,34 +1,45 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
-import { registerUser } from "@/services/api";
-import { FaEye , FaEyeSlash  } from "react-icons/fa";
 
 export default function RegisterPage() {
-  const [step, setStep] = useState("intro"); 
   const [searchQuery, setSearchQuery] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    const user = localStorage.getItem("currentUser");
+    if (user) router.push("/home");
+  }, [router]);
+
   const handleHeaderSearch = (query: string) => {
     setSearchQuery(query);
-    setStep("loading");
-    setTimeout(() => setStep("results"), 2000);
   };
 
-  const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleRegister = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = {
-      username: e.currentTarget.username.value,
-      password: e.currentTarget.password.value,
-    };
+    const username = e.currentTarget.username.value;
+    const password = e.currentTarget.password.value;
+    const confirmPassword = e.currentTarget.confirmPassword.value;
 
-    try {
-      const res = await registerUser(formData);
-      alert(res.message);
-    } catch (err) {
-      console.error(err);
-      alert("เกิดข้อผิดพลาดในการสมัครสมาชิก");
+    if (password !== confirmPassword) {
+      alert("รหัสผ่านไม่ตรงกัน");
+      return;
     }
+
+    const storedUsers = JSON.parse(localStorage.getItem("users") || "[]");
+    if (storedUsers.find((u: any) => u.username === username)) {
+      alert("ชื่อผู้ใช้นี้ถูกใช้งานแล้ว");
+      return;
+    }
+
+    storedUsers.push({ username, password });
+    localStorage.setItem("users", JSON.stringify(storedUsers));
+    localStorage.setItem("currentUser", JSON.stringify({ username }));
+
+    alert("สมัครสมาชิกสำเร็จ!");
+    router.push("/home");
   };
 
   return (

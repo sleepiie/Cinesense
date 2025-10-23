@@ -46,7 +46,7 @@ export default function LoginPage() {
         console.log("Current user data:", userData); // ← ควรเห็นข้อมูล user
 
         // ใช้ router แทน window.location.href
-        router.push("/");
+        router.push("/home");
         router.refresh();
       } else {
         console.log("Login failed with message:", res.message); // ← เพิ่ม log
