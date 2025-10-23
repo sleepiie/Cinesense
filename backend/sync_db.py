@@ -46,7 +46,8 @@ def sync_movie_data_to_redis():
                     movie_synopsis,
                     movie_link,
                     movie_direct,
-                    movie_emotion
+                    movie_emotion,
+                    movie_poster
                 FROM movies
             """)
 
@@ -60,18 +61,19 @@ def sync_movie_data_to_redis():
         pipeline = redisconn.pipeline()
         for movie in movies:
             (movie_id, movie_name, movie_genre, movie_rating, movie_synopsis, 
-                movie_link, movie_direct, movie_emotion) = movie
+                movie_link, movie_direct, movie_emotion , movie_poster) = movie
         
             pipeline.hset(
                 f'movie:{movie_id}',
                 mapping={
-                    'name': movie_name,
-                    'gerne': movie_genre,
-                    'rating': movie_rating,
-                    'synopsis': movie_synopsis,
-                    'link': movie_link,
-                    'direct': movie_direct,
-                    'emotion': json.dumps(movie_emotion)
+                    'name': movie_name if movie_name is not None else '',
+                    'gerne': json.dumps(movie_genre) if movie_genre is not None else '[]', 
+                    'rating': movie_rating if movie_rating is not None else 0.0,
+                    'synopsis': movie_synopsis if movie_synopsis is not None else '',
+                    'link': json.dumps(movie_link) if movie_link is not None else '[]',
+                    'direct': movie_direct if movie_direct is not None else '',
+                    'emotion': json.dumps(movie_emotion) if movie_emotion is not None else '[]',
+                    'poster': movie_poster if movie_poster is not None else ''
                 }
             )
         
