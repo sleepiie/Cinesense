@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { submitMood } from "@/services/api";
 
-export default function MovieForm({ onClose }) {
+export default function MovieForm({ onClose, onSubmit }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -30,7 +30,17 @@ export default function MovieForm({ onClose }) {
         setError(response.error);
         setResult(null);
       } else {
-        setResult(response);
+        // สุ่มเลือก 1 เรื่องจาก 10 เรื่อง
+        const randomMovie = response.top_movies[Math.floor(Math.random() * response.top_movies.length)];
+        const selectedMovie = {
+          ...randomMovie
+          // synopsis จะมาจาก backend แล้ว
+        };
+        
+        setResult(selectedMovie);
+        if (onSubmit) {
+          onSubmit(selectedMovie);
+        }
       }
     } catch (err) {
       setError(err.message || "เกิดข้อผิดพลาด");

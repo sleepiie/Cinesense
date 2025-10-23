@@ -149,6 +149,18 @@ body {
 .user-icon {
   position: relative;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid var(--gray-text);
+  padding: 0.3rem 0.8rem; 
+  border-radius: 20px; 
+  transition: all 0.3s ease; 
+}
+
+.user-icon:hover {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .user-popup {
@@ -661,6 +673,105 @@ select {
   color: #ffc107;
 }
 
+
+/* Movie Card Styles */
+.movie-card {
+  background-color: #2a2a2a;
+  border-radius: 15px;
+  padding: 2rem;
+  margin: 1rem 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.movie-poster {
+  width: 200px;
+  height: 300px;
+  object-fit: cover;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+}
+
+.movie-info h2 {
+  color: var(--text-color);
+  margin-bottom: 0.5rem;
+  font-size: 1.8rem;
+}
+
+.movie-genres {
+  color: var(--gray-text);
+  margin-bottom: 1rem;
+  font-size: 1rem;
+}
+
+.streaming-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  padding: 0.8rem 1rem;
+  background-color: rgba(229, 9, 20, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(229, 9, 20, 0.3);
+}
+
+.streaming-icons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.streaming-icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.streaming-icon-img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  transition: transform 0.2s ease;
+}
+
+.streaming-icon-img:hover {
+  transform: scale(1.1);
+}
+
+.streaming-fallback {
+  font-size: 2rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  transition: transform 0.2s ease;
+}
+
+.streaming-fallback:hover {
+  transform: scale(1.1);
+}
+
+.streaming-text {
+  color: var(--text-color);
+  font-weight: 500;
+  font-size: 1rem;
+}
+
+.synopsis {
+  color: var(--gray-text);
+  line-height: 1.6;
+  margin: 1rem 0;
+  text-align: left;
+}
+
+.rating-section {
+  margin-top: 1.5rem;
+}
+
+.thank-you {
+  color: #ffc107;
+  font-weight: 500;
+  margin-top: 1rem;
+}
 
 /* --- Utility Class --- */
 .hidden {

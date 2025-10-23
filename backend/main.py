@@ -337,7 +337,8 @@ def submit_mood(submit: SubmitRequest, session_id: Optional[str] = Cookie(None))
         # 3. Data Pre-processing
         df_movies = df_movies.rename(columns={
             "name": "movie_name", "emotion": "movie_emotion", 
-            "gerne": "movie_genre", "poster": "movie_poster"
+            "gerne": "movie_genre", "poster": "movie_poster",
+            "link": "movie_links", "synopsis": "movie_synopsis"
         })
 
         emotion_data = df_movies["movie_emotion"].apply(json.loads)
@@ -404,12 +405,29 @@ def submit_mood(submit: SubmitRequest, session_id: Optional[str] = Cookie(None))
 
         results = []
         for _, row in top_10.iterrows():
+            # ดึงข้อมูล streaming จาก Redis
+            movie_links = []
+            try:
+                if row.get("movie_links") and row["movie_links"] != "[]":
+                    movie_links = json.loads(row["movie_links"])
+            except:
+                movie_links = []
+            
+            # ถ้าไม่มี streaming links ให้ใช้ default
+            if not movie_links:
+                streaming_services = []  # default
+            else:
+                # ใช้ทุก streaming service ที่มี
+                streaming_services = movie_links
+            
             results.append({
                 "movie_id": str(row["movie_id"]),
                 "title": str(row.get("movie_name", "Unknown")),
                 "genres": list(row.get("movie_genres_list", [])),
                 "poster": str(row.get("movie_poster", "")),
-                "matching_rate": float(row["matching_rate"])
+                "matching_rate": float(row["matching_rate"]),
+                "streaming_services": streaming_services,  # เปลี่ยนเป็น array
+                "synopsis": str(row.get("movie_synopsis", ""))
             })
         print(user_id,results)
         return {

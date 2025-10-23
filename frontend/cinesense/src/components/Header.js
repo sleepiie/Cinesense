@@ -30,17 +30,6 @@ export default function Header({ onSearch, user, setUser }) {
           CINESENSE
         </div>
 
-        <nav className="nav-section">
-          <ul className="nav-links">
-            <li><a href="/">Home</a></li>
-            {!user && (
-              <>
-                <li><Link href="/login" className="header-btn">Login</Link></li>
-                <li><Link href="/register">Register</Link></li>
-              </>
-            )}
-          </ul>
-        </nav>
 
         <div className="header-right">
 

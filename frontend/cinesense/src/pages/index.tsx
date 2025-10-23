@@ -42,13 +42,15 @@ export default function HomePage() {
   console.log("2. ค่า user ใน Render body:", user);
   const handleStart = () => setStep("form");
 
-  const handleSubmit = async (formData: any) => {
+  const handleSubmit = async (selectedMovie: any) => {
     setStep("loading");
     try {
-      const result = await submitMood(formData);
-      console.log("Movie API Result:", result);
-      setMovie(result);
-      setSearchQuery(result.title);
+      // จำลองการประมวลผล
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      console.log("Selected Movie:", selectedMovie);
+      setMovie(selectedMovie);
+      setSearchQuery(selectedMovie.title);
       setStep("results");
     } catch (err) {
       console.error(err);
@@ -86,11 +88,12 @@ export default function HomePage() {
       {/* 6. แสดง IntroBox สำหรับผู้ใช้ที่ login แล้ว */}
       {step === "intro" && <IntroBox onStart={handleStart} user={user} />}
       
-      {step === "form" && <MovieForm onClose={() => setStep("intro")} />}
+      {step === "form" && <MovieForm onClose={() => setStep("intro")} onSubmit={handleSubmit} />}
       {step === "loading" && <LoadingScreen />}
       {step === "results" && movie && (
         <ResultScreen onClose={() => setStep("intro")} query={searchQuery} movie={movie} />
       )}
     </div>
+
   );
 }

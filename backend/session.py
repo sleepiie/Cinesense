@@ -5,7 +5,7 @@ import secrets
 # In-memory session store (ในการใช้งานจริงควรใช้ Redis)
 sessions: Dict[str, dict] = {}
 
-SESSION_EXPIRE_MINUTES = 300
+SESSION_EXPIRE_MINUTES = 600
 
 def create_session(user_id: int, username: str) -> str:
     """สร้าง session ใหม่สำหรับ user"""
