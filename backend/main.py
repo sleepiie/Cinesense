@@ -14,6 +14,12 @@ from typing import Optional
 from session import create_session, get_session, delete_session
 import redis
 import json
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+import subprocess
+import logging
+from datetime import datetime
+import sys
 
 load_dotenv()
 
@@ -37,19 +43,18 @@ try:
 
 except Exception as e:
     print(f"ERROR LOADING ML FILES: {e}")
-    # หากโหลด Model ไม่สำเร็จ ให้ยกเลิกการทำงานหรือตั้งค่าเป็น None
     model = None
     encoder = None
 
 
 app = FastAPI()
 
-#host = os.getenv("URL_RUN_DEV")
+host = os.getenv("URL_RUN_DEV")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_credentials=True,  # ← สำคัญ! ต้องมี
+    allow_origins=[host],
+    allow_credentials=True,  
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -62,9 +67,104 @@ r = redis.Redis(
     decode_responses=True
 )
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+scheduler = BackgroundScheduler()
+
+def scheduled_movie_update():
+    """Function ที่จะถูกเรียกใช้ทุกๆ 7 วันเวลาเที่ยงคืน"""
+    try:
+        logger.info(f"Starting scheduled movie update at {datetime.now()}")
+        python_executable = sys.executable
+        
+        # เรียกใช้ fetch_movie.py
+        logger.info("Running fetch_movie.py...")
+        result_fetch = subprocess.run(
+            [python_executable, "fetch_movie.py"], 
+            capture_output=True, 
+            text=True, 
+            cwd=os.path.dirname(os.path.abspath(__file__))
+        )
+        
+        if result_fetch.returncode == 0:
+            logger.info("fetch_movie.py completed successfully")
+            logger.info(f"fetch_movie output: {result_fetch.stdout}")
+        else:
+            logger.error(f"fetch_movie.py failed with return code {result_fetch.returncode}")
+            logger.error(f"fetch_movie error: {result_fetch.stderr}")
+            return
+        
+        # เรียกใช้ sync_db.py
+        logger.info("Running sync_db.py...")
+        result_sync = subprocess.run(
+            [python_executable, "sync_db.py"], 
+            capture_output=True, 
+            text=True, 
+            cwd=os.path.dirname(os.path.abspath(__file__))
+        )
+        
+        if result_sync.returncode == 0:
+            logger.info("sync_db.py completed successfully")
+            logger.info(f"sync_db output: {result_sync.stdout}")
+        else:
+            logger.error(f"sync_db.py failed with return code {result_sync.returncode}")
+            logger.error(f"sync_db error: {result_sync.stderr}")
+            return
+            
+        logger.info("Scheduled movie update completed successfully")
+        
+    except Exception as e:
+        logger.error(f"Error in scheduled_movie_update: {str(e)}")
+
+# ตั้งค่า scheduler ให้ทำงานทุกๆ 7 วันเวลาเที่ยงคืน (วันอาทิตย์เวลา 00:00)
+scheduler.add_job(
+    scheduled_movie_update,
+    trigger=CronTrigger(day_of_week=6, hour=0, minute=0),  # วันอาทิตย์ (6) เวลา 00:00
+    id='weekly_movie_update',
+    name='Weekly Movie Data Update',
+    replace_existing=True
+)
+
+# เริ่ม scheduler
+scheduler.start()
+logger.info("Scheduler started - Movie update will run every Sunday at midnight")
+
+# เพิ่ม shutdown handler เพื่อหยุด scheduler เมื่อปิดแอป
+@app.on_event("shutdown")
+def shutdown_scheduler():
+    scheduler.shutdown()
+    logger.info("Scheduler stopped")
+
 @app.get("/")
 def read_root():
     return {"message": "Welcome to FastAPI! API is working."}
+
+# เพิ่ม endpoint สำหรับจัดการ scheduler
+@app.get("/scheduler/status")
+def get_scheduler_status():
+    """ตรวจสอบสถานะของ scheduler"""
+    jobs = scheduler.get_jobs()
+    return {
+        "scheduler_running": scheduler.running,
+        "jobs": [
+            {
+                "id": job.id,
+                "name": job.name,
+                "next_run_time": str(job.next_run_time) if job.next_run_time else None
+            }
+            for job in jobs
+        ]
+    }
+
+@app.post("/scheduler/trigger-update")
+def trigger_manual_update():
+    """เรียกใช้ scheduled task ด้วยตนเอง (สำหรับทดสอบ)"""
+    try:
+        scheduled_movie_update()
+        return {"message": "Manual movie update triggered successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to trigger update: {str(e)}")
 
 class UserRegister(BaseModel):
     username: str
@@ -412,7 +512,7 @@ def submit_mood(submit: SubmitRequest, session_id: Optional[str] = Cookie(None))
         df_movies["user_arousal"] = user_arousal
         df_movies["user_genre"] = user_genre
 
-        # 3.1 Filter by selected genre first with fallback
+        #Filter by selected genre first with fallback
         print(f"DEBUG: user_genre = '{user_genre}'")
         print(f"DEBUG: movie_genre values = {df_movies['movie_genre'].unique()}")
         print(f"DEBUG: Movies before filtering = {len(df_movies)}")
@@ -436,8 +536,6 @@ def submit_mood(submit: SubmitRequest, session_id: Optional[str] = Cookie(None))
         df_features = df_movies[numerical_cols + genre_cols].copy() 
 
         # One-hot Encoding (OHE)
-        # ใช้ handle_unknown='ignore' ถ้าคุณเทรน encoder ด้วย option นี้
-        # ถ้าไม่ได้เทรนด้วย handle_unknown='ignore' ให้ใช้โค้ดเดิม (แต่เราได้จัดการ unknown categories แล้ว)
         encoded_genres = encoder.transform(df_features[genre_cols])
         encoded_cols = encoder.get_feature_names_out(genre_cols)
         encoded_df = pd.DataFrame(encoded_genres, columns=encoded_cols, index=df_features.index)
@@ -445,20 +543,16 @@ def submit_mood(submit: SubmitRequest, session_id: Optional[str] = Cookie(None))
         # รวม Features ตัวเลขเข้ากับ OHE Features
         processed_df = pd.concat([df_features.drop(columns=genre_cols), encoded_df], axis=1)
 
-        # *** FINAL CRITICAL STEP: บังคับเรียงคอลัมน์ตาม EXPECTED_COLS ***
-        # นี่คือการแก้ไขปัญหา "Feature names should match"
         try:
-            # เราใช้ .reindex(columns=...) เพื่อจัดเรียงคอลัมน์
             processed_df = processed_df.reindex(columns=EXPECTED_COLS, fill_value=0)
         except Exception as e:
-            # หากยังเกิด Error แสดงว่า EXPECTED_COLS อาจจะไม่ตรงกับ Features ที่ถูกสร้างจาก OHE
             raise HTTPException(status_code=500, detail=f"Failed to reindex features: {e}. Check EXPECTED_COLS.")
 
-        # 5. Prediction
+
         preds = model.predict(processed_df)
         df_movies["matching_rate"] = preds
 
-        # 6. สรุปผลลัพธ์
+
         top_10 = df_movies.sort_values(by="matching_rate", ascending=False).head(10)
 
         results = []
@@ -471,11 +565,11 @@ def submit_mood(submit: SubmitRequest, session_id: Optional[str] = Cookie(None))
             except:
                 movie_links = []
             
-            # ถ้าไม่มี streaming links ให้ใช้ default
+
             if not movie_links:
-                streaming_services = []  # default
+                streaming_services = []
             else:
-                # ใช้ทุก streaming service ที่มี
+
                 streaming_services = movie_links
             
             results.append({
@@ -484,7 +578,7 @@ def submit_mood(submit: SubmitRequest, session_id: Optional[str] = Cookie(None))
                 "genres": list(row.get("movie_genres_list", [])),
                 "poster": str(row.get("movie_poster", "")),
                 "matching_rate": float(row["matching_rate"]),
-                "streaming_services": streaming_services,  # เปลี่ยนเป็น array
+                "streaming_services": streaming_services,
                 "synopsis": str(row.get("movie_synopsis", ""))
             })
         print(user_id,results)
@@ -499,7 +593,7 @@ def submit_mood(submit: SubmitRequest, session_id: Optional[str] = Cookie(None))
         if 'processed_df' in locals():
              print(f"DEBUG: Current columns in processed_df: {processed_df.columns.tolist()}")
 
-        # ส่ง HTTP 500 กลับไปพร้อมข้อความ Error
+
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 @app.get("/watch-history")
