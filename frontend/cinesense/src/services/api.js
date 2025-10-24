@@ -61,12 +61,17 @@ export async function getCurrentUser() {
 }
 
 // ← เพิ่ม function สำหรับ vote
-export async function voteMovie(movieId, vote) {
+export async function voteMovie(movieId, vote, moviePoster, movieName) {
   const res = await fetch(`${BASE_URL}/vote`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include", // ← สำคัญ!
-    body: JSON.stringify({ movie_id: movieId, vote }),
+    body: JSON.stringify({ 
+      movie_id: movieId, 
+      vote, 
+      movie_poster: moviePoster, 
+      movie_name: movieName 
+    }),
   });
 
   if (!res.ok) {
@@ -106,4 +111,43 @@ export async function submitMood(formData) {
   }
 
   return await res.json();
+}
+
+// ← เพิ่ม function สำหรับตรวจสอบ username
+export async function checkUsername(username) {
+  const res = await fetch(`${BASE_URL}/check-username`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username }),
+  });
+
+  if (!res.ok) {
+    const error = await res.json();
+    return { 
+      available: false, 
+      message: error.detail || "เกิดข้อผิดพลาดในการตรวจสอบชื่อผู้ใช้" 
+    };
+  }
+
+  return await res.json();
+}
+
+// ← เพิ่ม function สำหรับดึงประวัติการรับชม
+export async function getWatchHistory() {
+  try {
+    const res = await fetch(`${BASE_URL}/watch-history`, {
+      method: "GET",
+      credentials: "include",
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({ detail: "Unknown error" }));
+      throw new Error(errorData.detail || `HTTP ${res.status}: Failed to get watch history`);
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error("Error fetching watch history:", error);
+    throw error;
+  }
 }

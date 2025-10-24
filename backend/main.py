@@ -177,11 +177,67 @@ def get_current_user(session_id: Optional[str] = Cookie(None)):
         "authenticated": True
     }
 
+# API สำหรับตรวจสอบ username availability
+class UsernameCheckRequest(BaseModel):
+    username: str
+
+@app.post("/check-username")
+def check_username(request: UsernameCheckRequest):
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    try:
+        # ตรวจสอบว่า username เป็นภาษาอังกฤษหรือตัวเลขเท่านั้น (ไม่รองรับอักขระอื่น)
+        if not request.username.isalnum():
+            return {
+                "available": False,
+                "message": "ชื่อผู้ใช้ต้องเป็นภาษาอังกฤษและตัวเลขเท่านั้น"
+            }
+        
+        # ตรวจสอบความยาว
+        if len(request.username) < 3:
+            return {
+                "available": False,
+                "message": "ชื่อผู้ใช้ต้องมีอย่างน้อย 3 ตัวอักษร"
+            }
+        
+        if len(request.username) > 20:
+            return {
+                "available": False,
+                "message": "ชื่อผู้ใช้ต้องไม่เกิน 20 ตัวอักษร"
+            }
+        
+        # ตรวจสอบใน database
+        cur.execute(
+            "SELECT user_id FROM users WHERE user_name = %s",
+            (request.username,)
+        )
+        existing_user = cur.fetchone()
+        
+        if existing_user:
+            return {
+                "available": False,
+                "message": "ชื่อผู้ใช้นี้ถูกใช้งานแล้ว"
+            }
+        
+        return {
+            "available": True,
+            "message": "ชื่อผู้ใช้พร้อมใช้งาน"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error checking username: {e}")
+    finally:
+        cur.close()
+        conn.close()
+
 
 # API สำหรับบันทึกโหวต (เพิ่มการตรวจสอบ session)
 class VoteRequest(BaseModel):
     movie_id: int
     vote: float
+    movie_poster: str
+    movie_name: str
     
 @app.post("/vote")
 def vote_movie(vote_req: VoteRequest, session_id: Optional[str] = Cookie(None)):
@@ -200,13 +256,13 @@ def vote_movie(vote_req: VoteRequest, session_id: Optional[str] = Cookie(None)):
     try:
         cur.execute(
             """
-            INSERT INTO Watched (user_id, movie_id, vote)
-            VALUES (%s, %s, %s)
+            INSERT INTO watched (user_id, movie_id, vote, movie_poster, movie_name)
+            VALUES (%s, %s, %s, %s, %s)
             ON CONFLICT (user_id, movie_id)
-            DO UPDATE SET vote = EXCLUDED.vote
+            DO UPDATE SET vote = EXCLUDED.vote, movie_poster = EXCLUDED.movie_poster, movie_name = EXCLUDED.movie_name
             RETURNING watch_id
             """,
-            (user_id, vote_req.movie_id, vote_req.vote)
+            (user_id, vote_req.movie_id, vote_req.vote, vote_req.movie_poster, vote_req.movie_name)
         )
 
         watch_id = cur.fetchone()[0]
@@ -217,7 +273,9 @@ def vote_movie(vote_req: VoteRequest, session_id: Optional[str] = Cookie(None)):
             "watch_id": watch_id,
             "user_id": user_id,
             "movie_id": vote_req.movie_id,
-            "vote": vote_req.vote
+            "vote": vote_req.vote,
+            "movie_poster": vote_req.movie_poster,
+            "movie_name": vote_req.movie_name
         }
 
     except Exception as e:
@@ -443,3 +501,69 @@ def submit_mood(submit: SubmitRequest, session_id: Optional[str] = Cookie(None))
 
         # ส่ง HTTP 500 กลับไปพร้อมข้อความ Error
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+
+@app.get("/watch-history")
+def get_watch_history(session_id: Optional[str] = Cookie(None)):
+    """ดึงประวัติการรับชมภาพยนตร์ของผู้ใช้"""
+    if not session_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    session = get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=401, detail="Invalid or expired session")
+    
+    user_id = session.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="User not found in session")
+    
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    try:
+        # ดึงประวัติการรับชม
+        cur.execute("""
+            SELECT 
+                w.watch_id,
+                w.movie_id,
+                w.vote,
+                w.movie_poster,
+                w.movie_name
+            FROM watched w
+            WHERE w.user_id = %s
+            ORDER BY w.watch_id DESC
+        """, (user_id,))
+        
+        watch_history = cur.fetchall()
+        
+        # นับจำนวนภาพยนตร์ที่ดูแล้ว
+        cur.execute("""
+            SELECT COUNT(*) as total_watched
+            FROM watched w
+            WHERE w.user_id = %s
+        """, (user_id,))
+        
+        total_watched = cur.fetchone()[0]
+        
+        # แปลงข้อมูลเป็น format ที่เหมาะสม
+        history_data = []
+        for record in watch_history:
+            history_data.append({
+                "watch_id": record[0],
+                "movie_id": record[1],
+                "vote": float(record[2]),
+                "movie_poster": record[3],
+                "movie_name": record[4]
+            })
+        
+        return {
+            "message": "Watch history retrieved successfully",
+            "total_watched": total_watched,
+            "watch_history": history_data
+        }
+        
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=f"Failed to get watch history: {e}")
+    finally:
+        cur.close()
+        conn.close()

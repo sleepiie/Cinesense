@@ -3,7 +3,7 @@ export default function IntroBox({ onStart, user }) {
   return (
     <main className="main-content">
       <div className="intro-box">
-        <h1><i className="fas fa-film"></i> CINESENSE</h1>
+        <h1><i class="fa-solid fa-film"></i> CINESENSE</h1>
         
         {/* 2. เปลี่ยนข้อความตามสถานะ user */}
         {user ? (

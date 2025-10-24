@@ -41,8 +41,17 @@ export default function Header({ onSearch, user, setUser }) {
               {showUserPopup && (
                 <div className="user-popup">
                   <p>Welcome, {user.username}!</p>
-                  <a onClick={handleLogout} style={{ cursor: 'pointer', padding: '5px 0' }}>
-                    Logout
+                  <a 
+                    onClick={() => {
+                      setShowUserPopup(false);
+                      router.push("/watch-history");
+                    }} 
+                    style={{ cursor: 'pointer', padding: '5px 0', display: 'block' }}
+                  >
+                    <i className="fas fa-history"></i> ประวัติการรับชม
+                  </a>
+                  <a onClick={handleLogout} style={{ cursor: 'pointer', padding: '5px 0', display: 'block' }}>
+                    <i className="fas fa-sign-out-alt"></i> Logout
                   </a>
                 </div>
               )}

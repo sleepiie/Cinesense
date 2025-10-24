@@ -1,30 +1,58 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { voteMovie } from "@/services/api";
 
 export default function ResultScreen({ onClose, query, movie }) {
   const [rating, setRating] = useState(0);
   const [submitted, setSubmitted] = useState(false);
+  const [cooldownTime, setCooldownTime] = useState(60); // Start with 60 seconds cooldown
+  const [isVoting, setIsVoting] = useState(false);
+  const [voteError, setVoteError] = useState(null);
+  const [hasVoted, setHasVoted] = useState(false);
 
-  const handleStarClick = (value) => {
+  // Timer for cooldown - starts immediately when component mounts
+  useEffect(() => {
+    let interval;
+    if (cooldownTime > 0) {
+      interval = setInterval(() => {
+        setCooldownTime((prev) => {
+          if (prev <= 1) {
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [cooldownTime]);
+
+  const handleStarClick = async (value) => {
+    // Prevent voting if still in cooldown or already voted
+    if (cooldownTime > 0 || hasVoted) {
+      return;
+    }
+
     setRating(value);
+    setIsVoting(true);
+    setVoteError(null);
 
-    fetch("/api/submit-rating", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        movieId: movie?.id || "unknown_movie",
-        starRating: value,
-      }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        console.log("Rating submitted:", data);
-        setSubmitted(true);
-      })
-      .catch((err) => console.error("Error submitting rating:", err));
+    try {
+      const response = await voteMovie(
+        movie?.movie_id || movie?.id, 
+        value, 
+        movie?.poster || movie?.movie_poster || "", 
+        movie?.title || movie?.movie_name || ""
+      );
+      console.log("Vote submitted successfully:", response);
+      setSubmitted(true);
+      setHasVoted(true); // Mark as voted - no more voting allowed
+    } catch (err) {
+      console.error("Error submitting vote:", err);
+      setVoteError("ไม่สามารถบันทึกคะแนนได้ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setIsVoting(false);
+    }
   };
 
   // ฟังก์ชันสำหรับแสดง streaming icon
@@ -33,7 +61,7 @@ export default function ResultScreen({ onClose, query, movie }) {
       "Netflix": "/icons/netflix.png",
       "Disney+": "/icons/disney-plus.png", 
       "HBO Max": "/icons/hbo-max.png",
-      "Amazon Prime": "/icons/amazon-prime.png",
+      "Amazon Prime Video": "/icons/amazon-prime.png",
       "Apple TV": "/icons/apple-tv.png",
       "Apple TV+": "/icons/apple-tv.png",
       "Hulu": "/icons/hulu.png"
@@ -102,18 +130,57 @@ export default function ResultScreen({ onClose, query, movie }) {
 
             <div className="rating-section">
               <p>คุณคิดว่าเราแนะนำได้ดีแค่ไหน?</p>
+              
+              {/* Cooldown message */}
+              {cooldownTime > 0 && (
+                <div className="cooldown-message">
+                  <p className="cooldown-text">
+                    ⏰ กรุณารอ {cooldownTime} วินาที ก่อนจะโหวตได้
+                  </p>
+                  <p className="suggestion-text">
+                    💡 แนะนำให้ลองดูภาพยนตร์ก่อนโหวต เพื่อให้คะแนนที่แม่นยำมากขึ้น
+                  </p>
+                </div>
+              )}
+              
+              {/* Already voted message */}
+              {hasVoted && (
+                <div className="voted-message">
+                  <p className="voted-text">
+                    ✅ คุณได้โหวตแล้ว ขอบคุณสำหรับคะแนนของคุณ!
+                  </p>
+                </div>
+              )}
+              
+              {/* Voting error message */}
+              {voteError && (
+                <div className="error-message">
+                  <p className="error-text">{voteError}</p>
+                </div>
+              )}
+              
               <div className="star-rating">
                 {[1, 2, 3, 4, 5].map((v) => (
                   <i
                     key={v}
-                    className={`fas fa-star ${v <= rating ? "active" : ""}`}
+                    className={`fas fa-star ${v <= rating ? "active" : ""} ${
+                      cooldownTime > 0 || hasVoted ? "disabled" : ""
+                    } ${isVoting ? "loading" : ""}`}
                     onClick={() => handleStarClick(v)}
+                    style={{
+                      cursor: cooldownTime > 0 || hasVoted ? "not-allowed" : "pointer",
+                      opacity: cooldownTime > 0 || hasVoted ? 0.5 : 1
+                    }}
                   ></i>
                 ))}
               </div>
+              
+              {isVoting && <p className="voting-text">กำลังบันทึกคะแนน...</p>}
             </div>
 
-            {submitted && <p className="thank-you">ขอบคุณสำหรับคะแนนของคุณ!</p>}
+            {submitted && hasVoted && (
+              <p className="thank-you">ขอบคุณสำหรับคะแนนของคุณ!</p>
+            )}
           </div>
         </div>
       </div>

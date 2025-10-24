@@ -47,7 +47,7 @@ export default function LoginPage() {
       }
 
       if (res.message === "Login successful!") {
-        alert("done");
+        alert("login สำเร็จ");
         console.log("Login successful! Checking session...");
         
         const userData = await getCurrentUser();

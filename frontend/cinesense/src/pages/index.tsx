@@ -37,7 +37,7 @@ export default function HomePage() {
       }
     };
     fetchUser();
-  }, []); // [] หมายถึงให้รันแค่ครั้งเดียวตอนโหลด
+  }, [router]); // เพิ่ม router ใน dependency array
 
   console.log("2. ค่า user ใน Render body:", user);
   const handleStart = () => setStep("form");
