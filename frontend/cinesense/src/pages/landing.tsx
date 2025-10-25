@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { getCurrentUser } from "@/services/api";
 import Image from "next/image";
+import Header from "@/components/Header";
 
 export default function LandingPage() {
   const router = useRouter();
@@ -51,6 +52,8 @@ export default function LandingPage() {
   return (
     <div className="main-content">
       <div className="background-container"></div>
+
+      <Header onSearch={null} user={null} setUser={null} />
       
       <div className="landing-container" style={{ 
         display: "flex", 
@@ -122,7 +125,7 @@ export default function LandingPage() {
               <span 
                 onClick={() => router.push("/login")}
                 style={{ 
-                  color: "#007bff", 
+                  color: "#fa1631", 
                   cursor: "pointer",
                   textDecoration: "underline",
                   fontWeight: "500"

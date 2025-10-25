@@ -911,6 +911,43 @@ body {
   background-color: #f6121d;
 }
 
+/* --- Close Button Styles --- */
+.close-button {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background-color: var(--primary-color);
+  color: var(--text-color);
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  font-size: 0.9rem;
+  font-family: 'Kanit', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.close-button:hover {
+  background-color: #f6121d;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.close-button:active {
+  transform: translateY(0px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.close-button span {
+  font-weight: 600;
+  margin-left: 0.25rem;
+}
+
 /* --- Modal and Screens (Loading, Results) --- */
 .modal-overlay, .screen {
   position: fixed;
@@ -935,6 +972,7 @@ body {
   max-height: 90vh;
   overflow-y: auto;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
 }
 
 /* --- Form Styling --- */
@@ -1299,6 +1337,51 @@ select {
   100% { opacity: 1; }
 }
 
+/* --- Close Button Responsive --- */
+@media (max-width: 768px) {
+  .close-button {
+    top: 0.75rem;
+    right: 0.75rem;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+  }
+  
+  .close-button i {
+    font-size: 0.7rem;
+  }
+  
+  .close-button span {
+    font-size: 0.8rem;
+  }
+  
+  .modal-content, .screen-content {
+    padding: 1.5rem 2rem;
+    margin: 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .close-button {
+    top: 0.5rem;
+    right: 0.5rem;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+  }
+  
+  .close-button i {
+    font-size: 0.6rem;
+  }
+  
+  .close-button span {
+    font-size: 0.75rem;
+  }
+  
+  .modal-content, .screen-content {
+    padding: 1rem 1.5rem;
+    margin: 0.25rem;
+  }
+}
+
 /* --- Utility Class --- */
 .hidden {
   display: none !important;
@@ -1393,11 +1476,12 @@ select {
 }
 
 .stats-box {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
+  background: #1f1f1f;
+  backdrop-filter: blur(15px);
   border-radius: 20px;
   padding: 2rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
 .stats-box h3 {
@@ -1465,22 +1549,24 @@ select {
 
 
 .history-card-compact {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
+  background: #1f1f1f;
+  backdrop-filter: blur(15px);
   border-radius: 12px;
   padding: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   transition: all 0.3s ease;
   display: flex;
   gap: 0.75rem;
   align-items: center;
   min-height: 100px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
 .history-card-compact:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-  border-color: rgba(234, 102, 117, 0.5);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+  border-color: rgba(229, 9, 20, 0.3);
+  background: #252525;
 }
 
 .movie-poster-compact {
@@ -1543,10 +1629,11 @@ select {
 .empty-history {
   text-align: center;
   padding: 4rem 2rem;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
+  background: #1f1f1f;
+  backdrop-filter: blur(15px);
   border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
 .empty-history i {
@@ -1587,11 +1674,12 @@ select {
 .error-container {
   text-align: center;
   padding: 4rem 2rem;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
+  background: #1f1f1f;
+  backdrop-filter: blur(15px);
   border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   margin: 2rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
 .error-container h2 {

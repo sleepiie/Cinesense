@@ -32,6 +32,19 @@ def get_session(session_id: str) -> Optional[dict]:
         del sessions[session_id]
     return None
 
+def update_session_data(session_id: str, data: dict) -> bool:
+    """อัปเดตข้อมูลเพิ่มเติมใน session ที่มีอยู่"""
+    session = sessions.get(session_id)
+    
+    if session and session["expires"] > datetime.now():
+        session.update(data) # อัปเดต dictionary ใน in-memory store
+        return True
+    elif session:
+        # Session หมดอายุ
+        del sessions[session_id]
+        return False
+    return False
+
 def delete_session(session_id: str) -> bool:
     """ลบ session (สำหรับ logout)"""
     if session_id in sessions:

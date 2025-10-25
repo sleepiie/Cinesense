@@ -11,7 +11,7 @@ import joblib
 import numpy as np
 import pandas as pd
 from typing import Optional
-from session import create_session, get_session, delete_session
+from session import create_session, get_session, delete_session, update_session_data
 import redis
 import json
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -20,6 +20,7 @@ import subprocess
 import logging
 from datetime import datetime
 import sys
+from pytz import timezone
 
 load_dotenv()
 
@@ -70,67 +71,70 @@ r = redis.Redis(
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-scheduler = BackgroundScheduler()
+scheduler = BackgroundScheduler(timezone=timezone('Asia/Bangkok'))
 
-def scheduled_movie_update():
-    """Function ที่จะถูกเรียกใช้ทุกๆ 7 วันเวลาเที่ยงคืน"""
+def scheduled_movie_update_and_retrain():
+    python_executable = sys.executable
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    logger.info(f"Starting scheduled movie update at {datetime.now()}")
+    
     try:
-        logger.info(f"Starting scheduled movie update at {datetime.now()}")
-        python_executable = sys.executable
-        
-        # เรียกใช้ fetch_movie.py
         logger.info("Running fetch_movie.py...")
         result_fetch = subprocess.run(
             [python_executable, "fetch_movie.py"], 
             capture_output=True, 
             text=True, 
-            cwd=os.path.dirname(os.path.abspath(__file__))
+            cwd=script_dir,
+            check=True
         )
-        
-        if result_fetch.returncode == 0:
-            logger.info("fetch_movie.py completed successfully")
-            logger.info(f"fetch_movie output: {result_fetch.stdout}")
-        else:
-            logger.error(f"fetch_movie.py failed with return code {result_fetch.returncode}")
-            logger.error(f"fetch_movie error: {result_fetch.stderr}")
-            return
-        
-        # เรียกใช้ sync_db.py
+        logger.info("fetch_movie.py completed successfully")
+        logger.info(f"fetch_movie output: {result_fetch.stdout}")
+
         logger.info("Running sync_db.py...")
         result_sync = subprocess.run(
             [python_executable, "sync_db.py"], 
             capture_output=True, 
             text=True, 
-            cwd=os.path.dirname(os.path.abspath(__file__))
+            cwd=script_dir,
+            check=True
         )
+        logger.info("sync_db.py completed successfully")
+        logger.info(f"sync_db output: {result_sync.stdout}")
+
+        logger.info("Retraining model (feedbackloop.py)...")
+        result_loop = subprocess.run(
+            [python_executable, "feedbackloop.py"], 
+            capture_output=True, 
+            text=True, 
+            cwd=script_dir,
+            check=True
+        )
+        logger.info("feedbackloop.py completed successfully")
+        logger.info(f"feedbackloop output: {result_loop.stdout}")
         
-        if result_sync.returncode == 0:
-            logger.info("sync_db.py completed successfully")
-            logger.info(f"sync_db output: {result_sync.stdout}")
-        else:
-            logger.error(f"sync_db.py failed with return code {result_sync.returncode}")
-            logger.error(f"sync_db error: {result_sync.stderr}")
-            return
-            
         logger.info("Scheduled movie update completed successfully")
+
+    except subprocess.CalledProcessError as e:
+        script_name = os.path.basename(e.cmd[1])
+        logger.error(f"Scheduled update failed at {script_name}!")
+        logger.error(f"Return code: {e.returncode}")
+        logger.error(f"Stderr: {e.stderr}")
         
     except Exception as e:
         logger.error(f"Error in scheduled_movie_update: {str(e)}")
 
-# ตั้งค่า scheduler ให้ทำงานทุกๆ 7 วันเวลาเที่ยงคืน (วันอาทิตย์เวลา 00:00)
 scheduler.add_job(
-    scheduled_movie_update,
-    trigger=CronTrigger(day_of_week=6, hour=0, minute=0),  # วันอาทิตย์ (6) เวลา 00:00
+    scheduled_movie_update_and_retrain,
+    trigger=CronTrigger(day_of_week=6, hour=0, minute=0),
     id='weekly_movie_update',
     name='Weekly Movie Data Update',
     replace_existing=True
 )
 
-# เริ่ม scheduler
 scheduler.start()
-logger.info("Scheduler started - Movie update will run every Sunday at midnight")
+logger.info("Scheduler started - Movie update and retrain will run every Sunday at midnight")
 
-# เพิ่ม shutdown handler เพื่อหยุด scheduler เมื่อปิดแอป
 @app.on_event("shutdown")
 def shutdown_scheduler():
     scheduler.shutdown()
@@ -140,7 +144,6 @@ def shutdown_scheduler():
 def read_root():
     return {"message": "Welcome to FastAPI! API is working."}
 
-# เพิ่ม endpoint สำหรับจัดการ scheduler
 @app.get("/scheduler/status")
 def get_scheduler_status():
     """ตรวจสอบสถานะของ scheduler"""
@@ -161,7 +164,7 @@ def get_scheduler_status():
 def trigger_manual_update():
     """เรียกใช้ scheduled task ด้วยตนเอง (สำหรับทดสอบ)"""
     try:
-        scheduled_movie_update()
+        scheduled_movie_update_and_retrain()
         return {"message": "Manual movie update triggered successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to trigger update: {str(e)}")
@@ -339,9 +342,17 @@ class VoteRequest(BaseModel):
     movie_poster: str
     movie_name: str
     
+# API สำหรับบันทึกโหวต (เพิ่มการตรวจสอบ session และบันทึก feedback)
+class VoteRequest(BaseModel):
+    movie_id: int
+    vote: float
+    movie_poster: str
+    movie_name: str
+    
+
 @app.post("/vote")
 def vote_movie(vote_req: VoteRequest, session_id: Optional[str] = Cookie(None)):
-    # ← ตรวจสอบ session
+    # 1. ตรวจสอบ session
     if not session_id:
         raise HTTPException(status_code=401, detail="Not authenticated")
     
@@ -349,11 +360,85 @@ def vote_movie(vote_req: VoteRequest, session_id: Optional[str] = Cookie(None)):
     if not session:
         raise HTTPException(status_code=401, detail="Invalid or expired session")
     
-    user_id = session["user_id"]  # ← ดึง user_id จาก session
+    user_id = session["user_id"]
     
+    # --- BEGIN MODIFICATION FOR FEEDBACK ---
+    
+    # 2. ดึงข้อมูลอารมณ์ผู้ใช้จาก session (ที่บันทึกโดย /submit)
+    user_valence = session.get("user_valence")
+    user_arousal = session.get("user_arousal")
+    user_genre = session.get("user_genre") # นี่คือค่าที่ map แล้ว e.g., "Action"
+
+    log_feedback = True
+    movie_valence = None
+    movie_arousal = None
+    movie_genre_to_log = None
+
+    if user_valence is None or user_arousal is None or user_genre is None:
+        log_feedback = False
+        logger.warning(f"Skipping feedback for user {user_id}, movie {vote_req.movie_id}: User mood data not in session.")
+    else:
+        try:
+            # แปลงค่าจาก Redis (string) กลับเป็น float
+            user_valence = float(user_valence)
+            user_arousal = float(user_arousal)
+            
+            # 3. ดึงข้อมูลหนัง (valence, arousal, genre) จาก Redis
+            movie_key = f"movie:{vote_req.movie_id}"
+            movie_data = r.hgetall(movie_key)
+            
+            if not movie_data:
+                logger.warning(f"Skipping feedback for user {user_id}, movie {vote_req.movie_id}: Movie data not found in Redis.")
+                log_feedback = False
+            else:
+                # 3.1. ดึง movie_valence, movie_arousal
+                emotion_str = movie_data.get("emotion")
+                if emotion_str:
+                    emotion_data = json.loads(emotion_str)
+                    movie_valence = float(emotion_data[0])
+                    movie_arousal = float(emotion_data[1])
+                else:
+                    log_feedback = False
+                    logger.warning(f"Skipping feedback: Movie {vote_req.movie_id} missing 'emotion' data in Redis.")
+
+                # 3.2. ดึง movie_genre
+                # หมายเหตุ: ใน /submit ใช้ 'gerne' (มี typo)
+                genre_str = movie_data.get("gerne") 
+                
+                if genre_str and log_feedback:
+                    try:
+                        # e.g., ["Action", "Thriller"]
+                        movie_genres_list_original = json.loads(genre_str) 
+                        
+                        if user_genre in movie_genres_list_original:
+                            # ถ้า genre ที่ user เลือก (e.g., "Action") อยู่ใน list ของหนัง
+                            movie_genre_to_log = user_genre
+                        elif movie_genres_list_original:
+                            # ถ้าไม่ตรง ให้ใช้ค่าแรกใน list
+                            movie_genre_to_log = movie_genres_list_original[0]
+                        else:
+                            # ถ้า list ว่างเปล่า
+                            movie_genre_to_log = DEFAULT_GENRE
+                    except Exception as e:
+                        logger.warning(f"Error processing movie genre for feedback: {e}. Using default.")
+                        movie_genre_to_log = DEFAULT_GENRE
+                elif log_feedback:
+                    # ถ้ามี emotion แต่ไม่มี genre
+                    logger.warning(f"Skipping feedback: Movie {vote_req.movie_id} missing 'gerne' data. Using default.")
+                    movie_genre_to_log = DEFAULT_GENRE
+                
+        except Exception as e:
+            # หากเกิด Error ระหว่างเตรียมข้อมูล
+            logger.error(f"Error preparing feedback data: {e}")
+            log_feedback = False
+
+    # --- END MODIFICATION FOR FEEDBACK ---
+
+    # 4. บันทึกข้อมูลลง Database (Watched และ Feedback)
     conn = get_connection()
     cur = conn.cursor()
     try:
+        # 4.1. บันทึกลงตาราง 'watched' (เหมือนเดิม)
         cur.execute(
             """
             INSERT INTO watched (user_id, movie_id, vote, movie_poster, movie_name)
@@ -366,7 +451,38 @@ def vote_movie(vote_req: VoteRequest, session_id: Optional[str] = Cookie(None)):
         )
 
         watch_id = cur.fetchone()[0]
-        conn.commit()
+
+        # 4.2. บันทึกลงตาราง 'feedback' (ถ้าข้อมูลพร้อม)
+        if log_feedback:
+            cur.execute(
+                """
+                INSERT INTO feedback (
+                    user_id, user_valence, user_arousal, user_genre,
+                    movie_valence, movie_arousal, movie_genre,
+                    vote, movie_id
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (user_id, movie_id)
+                DO UPDATE SET
+                    user_valence = EXCLUDED.user_valence,
+                    user_arousal = EXCLUDED.user_arousal,
+                    user_genre = EXCLUDED.user_genre,
+                    movie_valence = EXCLUDED.movie_valence,
+                    movie_arousal = EXCLUDED.movie_arousal,
+                    movie_genre = EXCLUDED.movie_genre,
+                    vote = EXCLUDED.vote
+                """,
+                (
+                    user_id, user_valence, user_arousal, user_genre,
+                    movie_valence, movie_arousal, movie_genre_to_log,
+                    vote_req.vote, # ส่งค่า float ไป, DB จะแปลงเป็น integer
+                    vote_req.movie_id
+                )
+            )
+            logger.info(f"Feedback logged for user {user_id}, movie {vote_req.movie_id}")
+
+
+        conn.commit() # Commit ทั้ง 2 inserts พร้อมกัน
 
         return {
             "message": "Vote saved successfully!",
@@ -375,11 +491,12 @@ def vote_movie(vote_req: VoteRequest, session_id: Optional[str] = Cookie(None)):
             "movie_id": vote_req.movie_id,
             "vote": vote_req.vote,
             "movie_poster": vote_req.movie_poster,
-            "movie_name": vote_req.movie_name
+            "movie_name": vote_req.movie_name,
+            "feedback_logged": log_feedback # ส่งสถานะการ log feedback กลับไปด้วย
         }
 
     except Exception as e:
-        conn.rollback()
+        conn.rollback() # Rollback ทั้ง 2 inserts หากเกิดปัญหา
         raise HTTPException(status_code=400, detail=f"Vote failed: {e}")
     finally:
         cur.close()
@@ -464,7 +581,8 @@ def submit_mood(submit: SubmitRequest, session_id: Optional[str] = Cookie(None))
             "documentary": "Documentary",
             "horror": "Horror",
             "romance": "Romance",
-            "sci-fi": "Sci-Fi"
+            "sci-fi": "Sci-Fi",
+            "random": "random"
         }
         
         user_genre = genre_mapping.get(submit.genre.lower(), submit.genre)
@@ -472,12 +590,40 @@ def submit_mood(submit: SubmitRequest, session_id: Optional[str] = Cookie(None))
         print(f"DEBUG: Mapped genre = '{user_genre}'")
         print(f"DEBUG: ENCODER_KNOWN_GENRES = {ENCODER_KNOWN_GENRES}")
         print(f"DEBUG: DEFAULT_GENRE = '{DEFAULT_GENRE}'")
-        
-        if user_genre not in ENCODER_KNOWN_GENRES:
+
+        if user_genre == "random":
+
+            known_genres_list = list(ENCODER_KNOWN_GENRES)
+            if known_genres_list:
+                user_genre = np.random.choice(known_genres_list)
+                print(f"DEBUG: Selected 'random' genre: '{user_genre}'")
+            else:
+                user_genre = DEFAULT_GENRE
+                print(f"DEBUG: No known genres for random selection, using DEFAULT_GENRE: '{user_genre}'")
+
+        elif user_genre not in ENCODER_KNOWN_GENRES:
              print(f"DEBUG: Genre '{user_genre}' not in known genres, using DEFAULT_GENRE '{DEFAULT_GENRE}'")
              user_genre = DEFAULT_GENRE
         else:
              print(f"DEBUG: Genre '{user_genre}' found in known genres")
+        
+        try:
+            mood_data = {
+                "user_valence": user_valence,
+                "user_arousal": user_arousal,
+                "user_genre": user_genre
+            }
+            # ใช้ฟังก์ชันใหม่เพื่ออัปเดต in-memory session
+            success = update_session_data(session_id, mood_data) 
+
+            if success:
+                logger.info(f"User mood cached in IN-MEMORY session {session_id} for feedback.")
+            else:
+                # This might happen if session expired between /submit auth and this point
+                logger.warning(f"Could not cache user mood in session: Session {session_id} not found or expired.")
+        except Exception as e:
+            logger.warning(f"Could not cache user mood in session: {e}")
+        
 
         # 2. ดึงข้อมูลจาก Redis
         all_keys = list(r.scan_iter("movie:*"))

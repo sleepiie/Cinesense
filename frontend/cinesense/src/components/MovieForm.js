@@ -2,22 +2,28 @@
 
 import { useState } from "react";
 import { submitMood } from "@/services/api";
+import LoadingScreen from "./LoadingScreen";
 
 export default function MovieForm({ onClose, onSubmit }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
+    const genres = ["Action", "Comedy", "Romance", "Drama", "Horror", "Sci-Fi", "Documentary"];
+    let selectedGenre = e.target.genre.value;
+    
+
     const formData = {
       q1: parseInt(e.target.happiness.value),
       q2: parseInt(e.target.energy.value),
       q3: parseInt(e.target.excitement.value),
-      genre: e.target.genre.value,
+      genre: selectedGenre,
     };
 
     try {
@@ -48,17 +54,24 @@ export default function MovieForm({ onClose, onSubmit }) {
     } finally {
       setLoading(false);
     }
+
   };
 
-  const handleOverlayClick = (e) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
+  if (loading) {
+    return <LoadingScreen />;
+  }
 
   return (
-    <div className="modal-overlay" onClick={handleOverlayClick}>
+    <div className="modal-overlay">
       <div className="modal-content">
+        <button 
+          className="close-button" 
+          onClick={onClose}
+          type="button"
+          aria-label="ปิดฟอร์ม"
+        >
+          <i className="fas fa-times"></i>
+        </button>
         <form className="movie-form" onSubmit={handleSubmit}>
           <h2>ค้นหาภาพยนตร์ที่เหมาะกับคุณ</h2>
 
@@ -117,6 +130,7 @@ export default function MovieForm({ onClose, onSubmit }) {
           <div className="form-group">
             <label htmlFor="genre"><strong>ประเภทหนังที่สนใจ</strong></label>
             <select id="genre" name="genre" required>
+              <option value="random" className="random-option">สุ่มประเภทหนัง (Random)</option>
               <option value="Action">แอ็กชัน (Action)</option>
               <option value="Comedy">ตลก (Comedy)</option>
               <option value="Romance">โรแมนติก (Romance)</option>
@@ -128,7 +142,7 @@ export default function MovieForm({ onClose, onSubmit }) {
           </div>
 
           <button type="submit" className="form-submit-btn" disabled={loading}>
-            {loading ? "กำลังส่ง..." : "ส่งข้อมูล"}
+            {loading ? "กำลังค้นหา..." : "เริ่มค้นหา"}
           </button>
         </form>
 

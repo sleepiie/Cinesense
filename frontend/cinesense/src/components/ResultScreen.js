@@ -6,7 +6,7 @@ import { voteMovie } from "@/services/api";
 export default function ResultScreen({ onClose, query, movie }) {
   const [rating, setRating] = useState(0);
   const [submitted, setSubmitted] = useState(false);
-  const [cooldownTime, setCooldownTime] = useState(60); // Start with 60 seconds cooldown
+  const [cooldownTime, setCooldownTime] = useState(2); // Start with 60 seconds cooldown
   const [isVoting, setIsVoting] = useState(false);
   const [voteError, setVoteError] = useState(null);
   const [hasVoted, setHasVoted] = useState(false);
@@ -87,11 +87,19 @@ export default function ResultScreen({ onClose, query, movie }) {
   };
 
   return (
-    <div className="screen" onClick={onClose}>
+    <div className="screen">
       <div
         className="screen-content"
         onClick={(e) => e.stopPropagation()}
       >
+        <button 
+          className="close-button" 
+          onClick={onClose}
+          type="button"
+          aria-label="ปิดผลลัพธ์"
+        >
+          <i className="fas fa-times"></i>
+        </button>
         <h3>นี่คือภาพยนตร์ที่เหมาะกับคุณ</h3>
 
         <div className="movie-card">

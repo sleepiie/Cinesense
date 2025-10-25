@@ -20,23 +20,44 @@ headers = {
 }
 
 
-def get_movie_from_tmdb(num_pages=500):
-    all_movies = []
+async def async_get_movie_page(session, page_num):
+    # ใช้ params เดียวกัน แต่ส่ง page_num เข้าไป
+    url = os.getenv('URL') 
+    headers = {
+        "accept": "application/json",
+        "Authorization": os.getenv('API_KEY')
+    }
     params = {
         "language": "en-US",
         "sort_by": "vote_average.desc",
-        "vote_average.gte": 6, #ต้องมี rating 6 ขึ้นไป
-        "vote_count.gte": 300 #โหวตอย่างน้อย 300 คน
+        "vote_average.gte": 6, 
+        "vote_count.gte": 300,
+        "page": page_num
     }
-    for page in range(1, num_pages + 1):
-        params["page"] = page
-        response = requests.get(url, headers=headers, params=params)
-        data = response.json()
-        if "results" not in data or not data["results"]:
-            break
-        all_movies.extend(data["results"])
-        if page >= data.get("total_pages", num_pages):
-            break
+    async with session.get(url, headers=headers, params=params) as response:
+        return await response.json()
+
+async def async_get_movie_from_tmdb(num_pages=500, concurrency=20):
+    all_movies = []
+    pages_to_fetch = list(range(1, num_pages + 1)) 
+    
+    semaphore = asyncio.Semaphore(concurrency)
+
+    async with aiohttp.ClientSession() as session:
+        async def sem_task(page):
+            async with semaphore:
+                return await async_get_movie_page(session, page)
+
+        tasks = [sem_task(page) for page in pages_to_fetch]
+        
+        for i, task in enumerate(asyncio.as_completed(tasks), 1):
+            data = await task
+            if "results" in data and data["results"]:
+                all_movies.extend(data["results"])
+            
+            if i % 50 == 0:
+                print(f"Fetched {i} pages...")
+
     return all_movies[:10000]
 
 
@@ -106,13 +127,13 @@ async def fetch_all_movies_parallel(movies, concurrency=20):
     return results
 
 
-def main():
+async def main_async():
     print("Fetching movie list from TMDB...")
-    tmdb_movies = get_movie_from_tmdb()
+    tmdb_movies = await async_get_movie_from_tmdb()
     print(f"Total movies fetched: {len(tmdb_movies)}")
 
     print("Fetching directors and streaming links in parallel...")
-    movies_with_details = asyncio.run(fetch_all_movies_parallel(tmdb_movies, concurrency=10))
+    movies_with_details = await fetch_all_movies_parallel(tmdb_movies, concurrency=15)
 
     #ใช้ batch insert
     data_list = []
@@ -169,4 +190,4 @@ def main():
         pgconn.close()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main_async())
