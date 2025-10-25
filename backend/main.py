@@ -162,7 +162,6 @@ def get_scheduler_status():
 
 @app.post("/scheduler/trigger-update")
 def trigger_manual_update():
-    """เรียกใช้ scheduled task ด้วยตนเอง (สำหรับทดสอบ)"""
     try:
         scheduled_movie_update_and_retrain()
         return {"message": "Manual movie update triggered successfully"}
@@ -581,37 +580,65 @@ def submit_mood(submit: SubmitRequest, session_id: Optional[str] = Cookie(None))
             "documentary": "Documentary",
             "horror": "Horror",
             "romance": "Romance",
-            "sci-fi": "Sci-Fi",
+            "sci-fi": "Sci-Fi", # ใช้ 'Sci-Fi' เป็นค่าหลักที่ map จาก input
             "random": "random"
         }
         
-        user_genre = genre_mapping.get(submit.genre.lower(), submit.genre)
+        user_genre_input = submit.genre.lower()
+        
+        # ตรวจสอบว่าเป็น Sci-Fi หรือไม่ เพื่อกำหนดค่าค้นหาใน Redis
+        is_sci_fi = (user_genre_input == "sci-fi")
+        
+        # 1. กำหนด user_genre สำหรับการทำนาย/Feedback: 
+        if is_sci_fi:
+            user_genre_for_ml = "Sci-Fi"
+            user_genre_for_log = "Sci-Fi" 
+            redis_search_genre = "science fiction" 
+        else:
+            # General Case:
+            user_genre_for_log = genre_mapping.get(user_genre_input, submit.genre)
+            user_genre_for_ml = user_genre_for_log 
+            redis_search_genre = user_genre_input
+
+        
         print(f"DEBUG: Original genre from form = '{submit.genre}'")
-        print(f"DEBUG: Mapped genre = '{user_genre}'")
-        print(f"DEBUG: ENCODER_KNOWN_GENRES = {ENCODER_KNOWN_GENRES}")
-        print(f"DEBUG: DEFAULT_GENRE = '{DEFAULT_GENRE}'")
-
-        if user_genre == "random":
-
+        
+        # ตรวจสอบและจัดการ 'random'
+        if user_genre_input == "random":
+            # 1. เลือก random genre ที่ ML รู้จัก
             known_genres_list = list(ENCODER_KNOWN_GENRES)
             if known_genres_list:
-                user_genre = np.random.choice(known_genres_list)
-                print(f"DEBUG: Selected 'random' genre: '{user_genre}'")
+                user_genre_for_ml = np.random.choice(known_genres_list)
             else:
-                user_genre = DEFAULT_GENRE
-                print(f"DEBUG: No known genres for random selection, using DEFAULT_GENRE: '{user_genre}'")
+                user_genre_for_ml = DEFAULT_GENRE
+                
+            # 2. ปรับค่า log/search ให้สอดคล้องกับ genre ที่สุ่มได้
+            user_genre_for_log = user_genre_for_ml
+            redis_search_genre = user_genre_for_ml.lower()
+            
+            # 3. จัดการกรณีที่สุ่มได้ 'Science Fiction' 
+            if user_genre_for_ml == "Science Fiction":
+                 user_genre_for_log = "Sci-Fi" # ใช้ 'Sci-Fi' ในการ log
+                 redis_search_genre = "science fiction" # ใช้ 'science fiction' ในการ search
+            
+            print(f"DEBUG: Selected 'random' genre: '{user_genre_for_log}' (ML: '{user_genre_for_ml}')")
 
-        elif user_genre not in ENCODER_KNOWN_GENRES:
-             print(f"DEBUG: Genre '{user_genre}' not in known genres, using DEFAULT_GENRE '{DEFAULT_GENRE}'")
-             user_genre = DEFAULT_GENRE
+        # ตรวจสอบว่า Genre ที่จะใช้ทำนาย (ML) เป็นที่รู้จักของ Encoder หรือไม่
+        elif user_genre_for_ml not in ENCODER_KNOWN_GENRES:
+             print(f"DEBUG: Genre '{user_genre_for_log}' (ML: '{user_genre_for_ml}') not in known genres, using DEFAULT_GENRE '{DEFAULT_GENRE}'")
+             user_genre_for_ml = DEFAULT_GENRE
+             user_genre_for_log = DEFAULT_GENRE
+             redis_search_genre = DEFAULT_GENRE.lower()
         else:
-             print(f"DEBUG: Genre '{user_genre}' found in known genres")
+             print(f"DEBUG: Genre '{user_genre_for_log}' (ML: '{user_genre_for_ml}') found in known genres")
         
+        
+        # 2. Update Session (ใช้ค่า log/feedback)
         try:
             mood_data = {
                 "user_valence": user_valence,
                 "user_arousal": user_arousal,
-                "user_genre": user_genre
+                "user_genre": user_genre_for_log 
             }
             # ใช้ฟังก์ชันใหม่เพื่ออัปเดต in-memory session
             success = update_session_data(session_id, mood_data) 
@@ -625,7 +652,7 @@ def submit_mood(submit: SubmitRequest, session_id: Optional[str] = Cookie(None))
             logger.warning(f"Could not cache user mood in session: {e}")
         
 
-        # 2. ดึงข้อมูลจาก Redis
+        # 3. ดึงข้อมูลจาก Redis
         all_keys = list(r.scan_iter("movie:*"))
         pipe = r.pipeline()
         for key in all_keys:
@@ -638,7 +665,7 @@ def submit_mood(submit: SubmitRequest, session_id: Optional[str] = Cookie(None))
         df_movies = pd.DataFrame(movies_list)
         df_movies["movie_id"] = [key.split(":")[1] for key in all_keys]
 
-        # 3. Data Pre-processing
+        # 4. Data Pre-processing
         df_movies = df_movies.rename(columns={
             "name": "movie_name", "emotion": "movie_emotion", 
             "gerne": "movie_genre", "poster": "movie_poster",
@@ -649,6 +676,7 @@ def submit_mood(submit: SubmitRequest, session_id: Optional[str] = Cookie(None))
         df_movies[["movie_valence", "movie_arousal"]] = pd.DataFrame(emotion_data.tolist(), index=df_movies.index)
         # Keep a list of genres for filtering, then derive a single genre for the encoder
         try:
+            # สร้าง list ของ genres ทั้งหมดในรูปแบบ lowercase เพื่อใช้ในการกรอง
             df_movies["movie_genres_list"] = df_movies["movie_genre"].apply(lambda s: [g.lower() for g in json.loads(s)] if s else [])
         except Exception:
             df_movies["movie_genres_list"] = [[] for _ in range(len(df_movies))]
@@ -656,15 +684,13 @@ def submit_mood(submit: SubmitRequest, session_id: Optional[str] = Cookie(None))
         
         df_movies["user_valence"] = user_valence
         df_movies["user_arousal"] = user_arousal
-        df_movies["user_genre"] = user_genre
+        df_movies["user_genre"] = user_genre_for_ml # ใช้ค่า ML/OHE ('Science Fiction')
 
         #Filter by selected genre first with fallback
-        print(f"DEBUG: user_genre = '{user_genre}'")
-        print(f"DEBUG: movie_genre values = {df_movies['movie_genre'].unique()}")
-        print(f"DEBUG: Movies before filtering = {len(df_movies)}")
+        print(f"DEBUG: redis_search_genre = '{redis_search_genre}'")
         
-        # Filter by any matching genre in the list (case-insensitive)
-        df_movies_filtered = df_movies[df_movies["movie_genres_list"].apply(lambda gs: user_genre.lower() in gs)].copy()
+        # Filter by any matching genre in the list (ใช้ redis_search_genre ที่เป็น lower case)
+        df_movies_filtered = df_movies[df_movies["movie_genres_list"].apply(lambda gs: redis_search_genre in gs)].copy()
         print(f"DEBUG: Movies after filtering = {len(df_movies_filtered)}")
         
         if df_movies_filtered.empty:
@@ -673,7 +699,7 @@ def submit_mood(submit: SubmitRequest, session_id: Optional[str] = Cookie(None))
             df_movies_filtered = df_movies.copy()
         df_movies = df_movies_filtered
 
-        # 4. Feature Selection, OHE, and Final Preparation (CRITICAL FIX)
+        # 5. Feature Selection, OHE, and Prediction
         
         numerical_cols = ["user_valence", "user_arousal", "movie_valence", "movie_arousal"]
         genre_cols = ["user_genre", "movie_genre"]

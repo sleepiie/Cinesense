@@ -6,12 +6,11 @@ import { voteMovie } from "@/services/api";
 export default function ResultScreen({ onClose, query, movie }) {
   const [rating, setRating] = useState(0);
   const [submitted, setSubmitted] = useState(false);
-  const [cooldownTime, setCooldownTime] = useState(60); // Start with 60 seconds cooldown
+  const [cooldownTime, setCooldownTime] = useState(60);
   const [isVoting, setIsVoting] = useState(false);
   const [voteError, setVoteError] = useState(null);
   const [hasVoted, setHasVoted] = useState(false);
 
-  // Timer for cooldown - starts immediately when component mounts
   useEffect(() => {
     let interval;
     if (cooldownTime > 0) {
@@ -28,7 +27,6 @@ export default function ResultScreen({ onClose, query, movie }) {
   }, [cooldownTime]);
 
   const handleStarClick = async (value) => {
-    // Prevent voting if still in cooldown or already voted
     if (cooldownTime > 0 || hasVoted) {
       return;
     }
@@ -46,7 +44,7 @@ export default function ResultScreen({ onClose, query, movie }) {
       );
       console.log("Vote submitted successfully:", response);
       setSubmitted(true);
-      setHasVoted(true); // Mark as voted - no more voting allowed
+      setHasVoted(true);
     } catch (err) {
       console.error("Error submitting vote:", err);
       setVoteError("ไม่สามารถบันทึกคะแนนได้ กรุณาลองใหม่อีกครั้ง");
@@ -55,7 +53,6 @@ export default function ResultScreen({ onClose, query, movie }) {
     }
   };
 
-  // ฟังก์ชันสำหรับแสดง streaming icon
   const getStreamingIcon = (service) => {
     const iconPaths = {
       "Netflix": "/icons/netflix.png",
@@ -68,6 +65,7 @@ export default function ResultScreen({ onClose, query, movie }) {
     };
     
     const iconPath = iconPaths[service];
+
     if (iconPath) {
       return (
         <img 
@@ -76,15 +74,16 @@ export default function ResultScreen({ onClose, query, movie }) {
           className="streaming-icon-img"
           onError={(e) => {
             e.target.style.display = 'none';
-            e.target.nextSibling.style.display = 'inline';
           }}
         />
       );
     }
-    
-    // Fallback emoji
-    return "📺";
+
+    return null;
   };
+
+  const availableServices = movie?.streaming_services?.filter(service => service !== "N/A") || [];
+  const shouldShowNA = movie?.streaming_services?.includes("N/A") && availableServices.length === 0;
 
   return (
     <div className="screen">
@@ -116,18 +115,23 @@ export default function ResultScreen({ onClose, query, movie }) {
             <div className="streaming-info">
               <span className="streaming-text">Available on :</span>
               <div className="streaming-icons">
-                {movie?.streaming_services?.length > 0 ? (
-                  movie.streaming_services.map((service, index) => (
-                    <div key={index} className="streaming-icon-container">
-                      {getStreamingIcon(service)}
-                      <span className="streaming-fallback" style={{display: 'none'}}>📺</span>
-                    </div>
-                  ))
-                ) : (
+
+                {availableServices.length > 0 ? (
+                  availableServices.map((service, index) => {
+                    const icon = getStreamingIcon(service);
+
+                    return icon ? (
+                      <div key={index} className="streaming-icon-container">
+                        {icon}
+                      </div>
+                    ) : null; 
+                  })
+                ) : shouldShowNA || !movie?.streaming_services?.length ? (
+                
                   <div className="streaming-icon-container">
                     <span className="streaming-fallback">📺</span>
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
 

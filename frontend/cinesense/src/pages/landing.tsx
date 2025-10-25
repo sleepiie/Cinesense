@@ -14,10 +14,10 @@ export default function LandingPage() {
   // รูปภาพยนต์ตัวอย่างจาก local
   const movieImages = [
     "/movies/superman.jpg",
-    "/movies/superman.jpg", 
-    "/movies/superman.jpg",
-    "/movies/superman.jpg",
-    "/movies/superman.jpg"
+    "/movies/dune.png", 
+    "/movies/spiderman.png",
+    "/movies/btf.jpg",
+    "/movies/adam.jpg"
   ];
 
   // ตรวจสอบ user session เมื่อ component โหลด
@@ -81,7 +81,7 @@ export default function LandingPage() {
             textShadow: "2px 2px 4px rgba(0,0,0,0.5)",
             lineHeight: "1.2"
           }}>
-            🎬 Welcome to CINESENSE
+            Welcome to CINESENSE
           </h1>
           
           <p style={{ 
@@ -183,7 +183,7 @@ export default function LandingPage() {
                     border: "none",
                     background: index === currentImageIndex ? "#fff" : "rgba(255,255,255,0.5)",
                     cursor: "pointer",
-                    transition: "background 0.3s ease"
+                    transition: "background 0.5s ease"
                   }}
                 />
               ))}
