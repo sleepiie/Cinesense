@@ -6,7 +6,7 @@ import { voteMovie } from "@/services/api";
 export default function ResultScreen({ onClose, query, movie }) {
   const [rating, setRating] = useState(0);
   const [submitted, setSubmitted] = useState(false);
-  const [cooldownTime, setCooldownTime] = useState(2); // Start with 60 seconds cooldown
+  const [cooldownTime, setCooldownTime] = useState(60); // Start with 60 seconds cooldown
   const [isVoting, setIsVoting] = useState(false);
   const [voteError, setVoteError] = useState(null);
   const [hasVoted, setHasVoted] = useState(false);
