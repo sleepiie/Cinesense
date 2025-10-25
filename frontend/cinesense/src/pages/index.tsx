@@ -2,12 +2,12 @@
 
 import Header from "@/components/Header";
 import IntroBox from "@/components/IntroBox";
-import { useState, useEffect } from "react"; // 1. เพิ่ม useEffect
+import { useState, useEffect } from "react"; 
 import MovieForm from "@/components/MovieForm";
 import LoadingScreen from "@/components/LoadingScreen";
 import ResultScreen from "@/components/ResultScreen";
 import { getCurrentUser } from "@/services/api";
-import { submitMood } from "@/services/api"; // 2. เพิ่ม getCurrentUser
+import { submitMood } from "@/services/api";
 import { useRouter } from "next/navigation";
 
 export default function HomePage() {
