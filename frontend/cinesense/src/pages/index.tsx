@@ -23,14 +23,12 @@ export default function HomePage() {
       try {
         const userData = await getCurrentUser();
         setUser(userData); // userData จะเป็น null หรือ { user_id, username, ... }
-        console.log("HomePage: ได้ข้อมูล user:", userData);
         
         // ถ้าไม่มี user ให้ redirect ไปหน้า landing
         if (!userData) {
           router.push("/landing");
         }
       } catch (error) {
-        console.log("HomePage: ไม่มี user session หรือ session หมดอายุ");
         setUser(null);
         // ถ้าไม่มี session ให้ redirect ไปหน้า landing
         router.push("/landing");
@@ -39,7 +37,6 @@ export default function HomePage() {
     fetchUser();
   }, [router]); // เพิ่ม router ใน dependency array
 
-  console.log("2. ค่า user ใน Render body:", user);
   const handleStart = () => setStep("form");
 
   const handleSubmit = async (selectedMovie: any) => {
@@ -48,7 +45,6 @@ export default function HomePage() {
       // จำลองการประมวลผล
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      console.log("Selected Movie:", selectedMovie);
       setMovie(selectedMovie);
       setSearchQuery(selectedMovie.title);
       setStep("results");

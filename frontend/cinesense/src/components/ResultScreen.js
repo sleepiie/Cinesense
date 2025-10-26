@@ -42,7 +42,6 @@ export default function ResultScreen({ onClose, query, movie }) {
         movie?.poster || movie?.movie_poster || "", 
         movie?.title || movie?.movie_name || ""
       );
-      console.log("Vote submitted successfully:", response);
       setSubmitted(true);
       setHasVoted(true);
     } catch (err) {
