@@ -50,11 +50,12 @@ except Exception as e:
 
 app = FastAPI()
 
-host = os.getenv("URL_RUN_DEV")
+allowed_hosts_str = os.getenv("URL_RUN_DEV")
+allowed_hosts = [h.strip() for h in allowed_hosts_str.split(',')] if allowed_hosts_str else []
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[host],
+    allow_origins=allowed_hosts,
     allow_credentials=True,  
     allow_methods=["*"],
     allow_headers=["*"],

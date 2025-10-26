@@ -26,3 +26,4 @@ services:
 networks:
   cinesense_net:
     driver: bridge
+

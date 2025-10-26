@@ -995,14 +995,15 @@ body {
 /* --- Google-Like Radio Buttons --- */
 .rating-group {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 0;
+  justify-content: flex-start;
+  align-items: left;
+  padding: 0.5rem 0.5rem;
   gap: 1rem;
+  margin-right: 2rem;
 }
 
 .rating-group .label-text {
-  text-align: center;
+  text-align:  center;
   width: 2rem;
   font-size: 0.9rem;
   color: var(--gray-text);
@@ -1011,7 +1012,7 @@ body {
 }
 
 .radio-options-container {
-  margin-left: 2rem;
+  margin-left: 1rem;
   display: flex;
   justify-content: space-around;
   flex-grow: 1;
