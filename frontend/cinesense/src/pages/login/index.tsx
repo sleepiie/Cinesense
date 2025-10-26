@@ -35,30 +35,23 @@ export default function LoginPage() {
     };
 
     try {
-      console.log("Attempting login...");
       const res = await loginUser(formData);
-      
-      console.log("Login response:", res);
 
       if (res.error) {
-        console.log("Login error:", res.error);
         setErrorMsg(res.error);
         return;
       }
 
       if (res.message === "Login successful!") {
         alert("login สำเร็จ");
-        console.log("Login successful! Checking session...");
         
         const userData = await getCurrentUser();
-        console.log("Current user data:", userData);
         
         setUser(userData); // 4. อัปเดต user state หลัง login สำเร็จ
         
         router.push("/");
         // router.refresh();
       } else {
-        console.log("Login failed with message:", res.message);
         setErrorMsg(res.message || "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");
       }
     } catch (err) {

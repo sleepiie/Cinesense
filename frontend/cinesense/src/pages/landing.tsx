@@ -32,7 +32,6 @@ export default function LandingPage() {
           router.push("/");
         }
       } catch (error) {
-        console.log("LandingPage: ไม่มี user session");
         setUser(null);
       }
     };
